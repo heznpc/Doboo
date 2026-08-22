@@ -1,0 +1,425 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */; };
+		22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */; };
+		28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */; };
+		87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81F3B6265B493C90A307BB5 /* ContentView.swift */; };
+		A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
+		C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3192B768E5A064F7205B25E /* DobooApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		56A3998D5A02AABCA28984EE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E4C8FBA65A7BB94A89FA59E7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 681CF2B6A707C77E0200B01E;
+			remoteInfo = Doboo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooCharacterView.swift; sourceTree = "<group>"; };
+		4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionState.swift; sourceTree = "<group>"; };
+		76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftBlobShape.swift; sourceTree = "<group>"; };
+		B3192B768E5A064F7205B25E /* DobooApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooApp.swift; sourceTree = "<group>"; };
+		B35D9BE8ACCE00169C708B1D /* Doboo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doboo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B81F3B6265B493C90A307BB5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		BFD53511DA444E06AD64519C /* DobooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DobooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionStateTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		35F4704D9391ABD7F9C5ED80 = {
+			isa = PBXGroup;
+			children = (
+				BBF6CDF121A0DAC1CD620680 /* Sources */,
+				A3C8099C49037C729B6C6CB7 /* Tests */,
+				A66F110596364F9708314519 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A3C8099C49037C729B6C6CB7 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		A66F110596364F9708314519 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B35D9BE8ACCE00169C708B1D /* Doboo.app */,
+				BFD53511DA444E06AD64519C /* DobooTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BBF6CDF121A0DAC1CD620680 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				B81F3B6265B493C90A307BB5 /* ContentView.swift */,
+				B3192B768E5A064F7205B25E /* DobooApp.swift */,
+				46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */,
+				76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */,
+				C967DD7C60F3999B2CB625D2 /* Core */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		C967DD7C60F3999B2CB625D2 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		681CF2B6A707C77E0200B01E /* Doboo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 19882F575654B4FF242ADAED /* Build configuration list for PBXNativeTarget "Doboo" */;
+			buildPhases = (
+				D5D668EE12875C22602A15A6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Doboo;
+			packageProductDependencies = (
+			);
+			productName = Doboo;
+			productReference = B35D9BE8ACCE00169C708B1D /* Doboo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		CFE58A14E7C0C6AFC9FB37B3 /* DobooTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDDD7225776F4957D9993653 /* Build configuration list for PBXNativeTarget "DobooTests" */;
+			buildPhases = (
+				00D74AA83DCE4B01BEF980FB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AC9B7A914645A3F8B7EE089C /* PBXTargetDependency */,
+			);
+			name = DobooTests;
+			packageProductDependencies = (
+			);
+			productName = DobooTests;
+			productReference = BFD53511DA444E06AD64519C /* DobooTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E4C8FBA65A7BB94A89FA59E7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					681CF2B6A707C77E0200B01E = {
+						DevelopmentTeam = XS7HJJN7GC;
+						ProvisioningStyle = Automatic;
+					};
+					CFE58A14E7C0C6AFC9FB37B3 = {
+						DevelopmentTeam = XS7HJJN7GC;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 1F35051330EF2ED8E644556A /* Build configuration list for PBXProject "Doboo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 35F4704D9391ABD7F9C5ED80;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A66F110596364F9708314519 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				681CF2B6A707C77E0200B01E /* Doboo */,
+				CFE58A14E7C0C6AFC9FB37B3 /* DobooTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		00D74AA83DCE4B01BEF980FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5D668EE12875C22602A15A6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */,
+				87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */,
+				C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */,
+				28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */,
+				22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AC9B7A914645A3F8B7EE089C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 681CF2B6A707C77E0200B01E /* Doboo */;
+			targetProxy = 56A3998D5A02AABCA28984EE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0212E10A10B17FD64CF4FADD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = XS7HJJN7GC;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		2EF22BEF9544BAEFF7E897FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Doboo;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo;
+				PRODUCT_NAME = Doboo;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		84C912CA4FF6BC8E58399838 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Doboo.app/Doboo";
+			};
+			name = Debug;
+		};
+		920832A4E3159A037ED7793D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo.tests;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Doboo.app/Doboo";
+			};
+			name = Release;
+		};
+		B5CE7B56085A7C9676E0A250 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = XS7HJJN7GC;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
+		E28701E1D3787B17370DB6C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Doboo;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKWatchOnly = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo;
+				PRODUCT_NAME = Doboo;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		19882F575654B4FF242ADAED /* Build configuration list for PBXNativeTarget "Doboo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2EF22BEF9544BAEFF7E897FA /* Debug */,
+				E28701E1D3787B17370DB6C8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		1F35051330EF2ED8E644556A /* Build configuration list for PBXProject "Doboo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0212E10A10B17FD64CF4FADD /* Debug */,
+				B5CE7B56085A7C9676E0A250 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CDDD7225776F4957D9993653 /* Build configuration list for PBXNativeTarget "DobooTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84C912CA4FF6BC8E58399838 /* Debug */,
+				920832A4E3159A037ED7793D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E4C8FBA65A7BB94A89FA59E7 /* Project object */;
+}
