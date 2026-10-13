@@ -20,6 +20,12 @@ codex plugin add doboo@doboo-local
 
 `status`로 연결을 확인하고, `import_character_file`에 사용자가 선택한 `.doboo.json`의 절대경로를 넘깁니다. `install_agent`와 `host_status`에는 **현재 작업의 프로젝트 절대경로**를 `projectDirectory`로 넘깁니다. 플러그인 캐시의 작업 디렉터리는 설치 대상이 아닙니다.
 
+업데이트 후에는 **작업 중인 대화의 `status`**가 설치 버전과 같은지 확인해야 합니다. 0.2.1부터 `creation`에 이미지 입력 형식과 수정 기능, 진입 도구를 표시합니다. 설치 명령 성공이나 별도 프로세스 실행은 현재 대화 재연결의 증거가 아닙니다. 현재 대화에서 `begin_character_creation`, `revise_character_creation`, `creation_status`가 실제 호출 가능해야 합니다.
+
+호스트의 공식 `config/mcpServer/reload`는 실행 중인 대화에 MCP 갱신을 예약합니다. 해당 호출이 호스트에 노출되지 않으면 앱을 종료하고 다시 열어 **동일 대화**의 상태와 도구를 재확인합니다. 다른 대화나 독립 서버에서 성공했다고 이 검증을 생략하지 않습니다. 표준 `plugin.json`과 Codex용 `.codex-plugin/plugin.json`, `package.json`은 같은 버전이어야 하며 빌드가 불일치를 거부합니다.
+
+이미지 커스터마이징의 사용자 진입점은 채팅 첨부입니다. 이미지를 첨부하고 유지할 특징과 바꿀 부분을 설명하면 스킬이 원본 보존 → 수정 초안 → 모션/품질 검사 → Pets 적용을 연결합니다. 별도 이미지 업로드·그리기 패널은 아직 없습니다. 첨부 수신부터 같은 대화의 도구 실행까지 검증되지 않았다면 전체 사용자 흐름은 미검증으로 보고합니다.
+
 다른 표준 MCP 클라이언트에서는 `node /absolute/path/to/plugins/doboo/dist/server.mjs`를 stdio 서버로 연결할 수 있습니다. `character_context({id, version})`는 받은 캐릭터를 현재 대화에서 사용할 수 있는 공통 컨텍스트로 반환합니다. 라이브러리 버전이 바뀌면 거부하며 다른 모델·호스트를 자동 선택하지 않습니다. ‘이 대화에서 쓰기’는 이 경로만 요청합니다. 실제 타사 AI 호스트의 실행·응답은 별도 미검증입니다.
 
 갤러리 화면은 호스트가 MCP Apps를 지원할 때 사용하는 선택적 내부 UI입니다. 화면 지원이 없어도 `search_characters` → `inspect_character` → `adopt_character` → `character_context` 도구 경로가 동작합니다. 플러그인은 이 서버·스킬을 해당 호스트에 설치하는 묶음이며, 독립 웹사이트를 요구하지 않습니다.

@@ -1,5 +1,8 @@
 import { build } from 'esbuild';
 import { mkdir, readFile } from 'node:fs/promises';
+const manifestNames=['package.json','plugin.json','.codex-plugin/plugin.json'];
+const manifests=await Promise.all(manifestNames.map(async name=>JSON.parse(await readFile(name,'utf8'))));
+if(new Set(manifests.map(value=>value.version)).size!==1)throw new Error('Package, portable plugin and Codex plugin versions must match before installation.');
 await mkdir('dist', { recursive: true });
 const ui=await build({entryPoints:['src/gallery-ui.ts'],bundle:true,minify:true,platform:'browser',format:'esm',target:'es2022',write:false});
 // Git may check out the HTML with CRLF on Windows; embed the same bytes on every OS.
