@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "doboo",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Find and exchange characters, then connect their appearance and personality to your working hosts and Apple Watch.",
   "author": { "name": "Heznpc" },
   "repository": "https://github.com/heznpc/Doboo",

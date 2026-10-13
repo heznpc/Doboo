@@ -98,6 +98,10 @@ test('MCP protocol: fixture A publishes, fixture B discovers, inspects, adopts a
     assert.equal((gallery._meta?.ui as { resourceUri: string })?.resourceUri, uiURI);
     assert.equal(tools.tools.some(tool => /confirm.*host|host.*confirm/.test(tool.name)), false);
     const status = (await call(h.b.client, 'status')).data;
+    const manifest=JSON.parse(await readFile(join(pluginDirectory,'plugin.json'),'utf8'));
+    assert.equal(status.version,manifest.version);
+    assert.equal(status.creation.protocolVersion,1);
+    for(const name of [status.creation.entryTool,status.creation.statusTool,'revise_character_creation','revise_character_motion','revise_character_details'])assert.ok(tools.tools.some(tool=>tool.name===name),`Missing creation capability: ${name}`);
     assert.equal(status.galleryConnected, true);
     assert.equal(status.core.requiresAppleDevice, false);
     assert.equal(status.core.requiresOpenAIAccount, false);

@@ -1,5 +1,5 @@
 import { App } from '@modelcontextprotocol/ext-apps';
-const app=new App({name:'Doboo gallery',version:'0.2.0'},{});
+const app=new App({name:'Doboo gallery',version:'0.2.1'},{});
 const el=(id:string)=>document.getElementById(id)!;
 let local=false;
 const status=(text:string)=>{el('status').textContent=text;};

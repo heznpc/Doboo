@@ -1,5 +1,5 @@
 {
-  "name":"doboo", "version":"0.2.0",
+  "name":"doboo", "version":"0.2.1",
   "description":"Find and exchange reusable characters across working hosts and Apple Watch.",
   "author":{"name":"Heznpc"},
   "mcpServers":"./.mcp.json",
