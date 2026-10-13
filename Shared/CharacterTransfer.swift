@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import CryptoKit
 
 /// A successful transport callback is not an import receipt. Only the receiver's
 /// acknowledgement after validation and atomic persistence marks a delivery.
@@ -8,6 +9,14 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
   private weak var library: CharacterLibrary?
   private let session: WCSession?
   private var pendingID: String?
+  private struct Pending: Codable {
+    var token: String
+    var characterID: String
+    var version: Int64
+    var sha256: String
+    var definitionSHA256: String
+  }
+  private var pending: Pending?
 
   init(library: CharacterLibrary) {
     self.library = library
@@ -18,7 +27,7 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
     if session == nil { library.transferStatus = String(localized: "transfer.unavailable") }
   }
 
-  func send(_ pack: CharacterPack) {
+  func send(_ pack: CharacterPack, originalData: Data? = nil) {
     defer { recordDiagnostic("send") }
     guard let session, session.activationState == .activated else {
       library?.transferStatus = String(localized: "transfer.notReady")
@@ -36,10 +45,16 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
       let token = UUID().uuidString
       let url = directory.appendingPathComponent("\(token).doboo.json")
-      try pack.encoded().write(to: url, options: .atomic)
+      let data = try originalData ?? pack.encoded()
+      guard try CharacterPack.decode(data) == pack else { throw CharacterPackError.invalidJSON }
+      try data.write(to: url, options: .atomic)
+      let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+      let next = Pending(token: token, characterID: pack.id, version: pack.version, sha256: digest, definitionSHA256: try pack.definitionSHA256)
+      pending = next
+      UserDefaults.standard.set(try JSONEncoder().encode(next), forKey: "doboo.transfer.expected")
       pendingID = token
       UserDefaults.standard.set(token, forKey: "doboo.transfer.pending")
-      session.transferFile(url, metadata: ["characterID": pack.id, "version": pack.version, "receiptID": token])
+      session.transferFile(url, metadata: ["characterID": pack.id, "version": pack.version, "receiptID": token, "sha256": digest, "definitionSHA256": next.definitionSHA256])
       library?.transferStatus = String(localized: "transfer.queued")
     } catch { library?.errorMessage = error.localizedDescription }
   }
@@ -49,6 +64,9 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
     Task { @MainActor [weak self] in
       guard let self else { return }
       self.pendingID = UserDefaults.standard.string(forKey: "doboo.transfer.pending")
+      if let data = UserDefaults.standard.data(forKey: "doboo.transfer.expected") {
+        self.pending = try? JSONDecoder().decode(Pending.self, from: data)
+      }
       if let errorMessage { self.library?.transferStatus = errorMessage }
       else if self.pendingID != nil { self.library?.transferStatus = String(localized: "transfer.awaiting") }
       self.recordDiagnostic("activation")
@@ -65,6 +83,10 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
 
   nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
     let receiptID = file.metadata?["receiptID"] as? String ?? ""
+    let expectedID = file.metadata?["characterID"] as? String
+    let expectedVersion = (file.metadata?["version"] as? NSNumber)?.int64Value
+    let expectedHash = file.metadata?["sha256"] as? String
+    let expectedDefinition = file.metadata?["definitionSHA256"] as? String
     // WC owns this temporary URL only for the duration of this callback.
     let result: Result<Data, Error>
     do { result = .success(try CharacterLibrary.readBoundedFile(file.fileURL)) }
@@ -73,8 +95,17 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
       guard let self else { return }
       do {
         guard let library = self.library else { return }
-        let pack = try library.importData(result.get())
-        self.session?.transferUserInfo(["dobooReceipt": receiptID, "result": "imported", "characterID": pack.id])
+        let data = try result.get()
+        let candidate = try CharacterPack.decode(data)
+        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard candidate.id == expectedID, candidate.version == expectedVersion, digest == expectedHash, try candidate.definitionSHA256 == expectedDefinition else {
+          throw CharacterPackError.invalidJSON
+        }
+        let pack = try library.importData(data)
+        library.select(pack)
+        let selected = library.selected.id == pack.id && library.selected.version == pack.version
+        self.session?.transferUserInfo(["dobooReceipt": receiptID, "result": "imported", "characterID": pack.id,
+          "version": pack.version, "sha256": digest, "definitionSHA256": try pack.definitionSHA256, "selected": selected])
         self.recordDiagnostic("imported")
       } catch {
         self.library?.errorMessage = error.localizedDescription
@@ -109,14 +140,35 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
     let token = userInfo["dobooReceipt"] as? String
     let result = userInfo["result"] as? String
     let reason = userInfo["reason"] as? String
+    let characterID = userInfo["characterID"] as? String
+    let version = (userInfo["version"] as? NSNumber)?.int64Value
+    let digest = userInfo["sha256"] as? String
+    let definition = userInfo["definitionSHA256"] as? String
+    let selected = userInfo["selected"] as? Bool ?? false
     Task { @MainActor [weak self] in
       guard let self, let token, token == self.pendingID else { return }
       if result == "imported" {
+        guard let expected = self.pending, expected.token == token,
+          characterID == expected.characterID, version == expected.version, digest == expected.sha256, definition == expected.definitionSHA256 else {
+          self.library?.transferStatus = String(localized: "transfer.rejected")
+          return
+        }
+        do {
+          let documents = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+          let receipts = documents.appendingPathComponent("DobooReceipts", isDirectory: true)
+          try FileManager.default.createDirectory(at: receipts, withIntermediateDirectories: true)
+          let receipt: [String: Any] = ["receiptID": token, "result": "imported", "characterID": expected.characterID,
+            "version": expected.version, "sha256": expected.sha256, "definitionSHA256": expected.definitionSHA256, "selected": selected]
+          let bytes = try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
+          try bytes.write(to: receipts.appendingPathComponent("\(expected.characterID)-v\(expected.version).json"), options: .atomic)
+        } catch { self.library?.errorMessage = error.localizedDescription; return }
         self.library?.transferStatus = String(localized: "transfer.delivered")
       } else {
         self.library?.transferStatus = String(localized: "transfer.rejected") + " " + (reason ?? "")
       }
       self.pendingID = nil
+      self.pending = nil
+      UserDefaults.standard.removeObject(forKey: "doboo.transfer.expected")
       UserDefaults.standard.removeObject(forKey: "doboo.transfer.pending")
       self.recordDiagnostic(result == "imported" ? "receipt-imported" : "receipt-rejected")
     }

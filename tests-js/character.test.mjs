@@ -64,3 +64,10 @@ test('exports preserve character id/version and safely encode hostile author tex
   const embedded=JSON.parse(instructions.split('--- 캐릭터 데이터 (작성자 입력) ---\n')[1].split('\n--- 캐릭터 데이터 끝 ---')[0]);
   assert.equal(embedded.identity.voice,c.identity.voice);
 });
+
+test('a host representation preserves one identity and round-trips without forcing identical pixels',()=>{
+  const c=spriteCharacter();c.appearance.watch={renderer:'native-doboo',tint:'#FF8F62'};
+  assert.deepEqual(parseCharacter(serializeCharacter(c)),c);
+  c.appearance.watch.extra=true;assert.throws(()=>validateCharacter(c));delete c.appearance.watch.extra;
+  c.appearance.watch.watch={renderer:'native-doboo',tint:'#000000'};assert.throws(()=>validateCharacter(c));
+});

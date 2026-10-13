@@ -29,3 +29,7 @@ Pets를 선택한 뒤에는 stable ID를 재조회해 확인합니다. 기존 Pe
 ## Watch
 
 iPhone 앱에서 exact pack을 가져와 기존 WatchConnectivity 경로로 전달합니다. 송신 queue·송신 callback·Watch 저장 후 수신 확인·실제 선택/표시는 각각 다른 상태입니다. 검증 시 [검증 절차](QUALITY_REVIEW.md)를 따릅니다.
+
+## 제작·갱신 파이프라인
+
+공식 제작 스크립트를 실행하는 MCP 도구와 호스트 스킬, stable Pet ID 기반 생성/갱신 상태 관리, 저장 이미지 대조, 버전·정의 해시를 확인하는 Watch 수신증을 연결했습니다. Pets와 Watch의 픽셀 일치는 요구하지 않으며 `appearance.watch`로 별도 표현을 보존합니다. 생성·등록·수신 절차는 [제작 파이프라인](CREATION_PIPELINE.md)을 따릅니다.

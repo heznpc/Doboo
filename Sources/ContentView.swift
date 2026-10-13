@@ -40,7 +40,7 @@ struct ContentView: View {
 
           TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !canAnimate)) { timeline in
             PackCharacterView(
-              pack: library.selected,
+              pack: library.selected.watchRepresentation,
               interaction: interaction,
               phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
               motionEnabled: canAnimate

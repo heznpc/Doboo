@@ -34,6 +34,7 @@ struct VerifyPack {
     try reopened.selected.encoded().write(to: output, options: .atomic)
     try Data(CharacterExports.dots(pack).utf8).write(to: output.appendingPathExtension("dots.md"), options: .atomic)
     try Data(CharacterExports.codex(pack).utf8).write(to: output.appendingPathExtension("toml"), options: .atomic)
+    try Data(pack.definitionSHA256.utf8).write(to: output.appendingPathExtension("sha256"), options: .atomic)
     print("Native round trip: \(pack.id)@\(pack.version)")
   }
 }

@@ -21,7 +21,7 @@ struct CharacterEditorView: View {
     )
     if original != nil && value.version < 9_007_199_254_740_991 { value.version += 1 }
     _draft = State(initialValue: value)
-    _spriteLayout = State(initialValue: value.appearance.sprite?.layout ?? .petsV1)
+    _spriteLayout = State(initialValue: value.appearance.sprite?.layout ?? .petsV2)
   }
 
   private var existing: CharacterPack? { library.packs.first(where: { $0.id == draft.id }) }
@@ -46,6 +46,15 @@ struct CharacterEditorView: View {
         traitsSection
         instructionsSection
         appearanceSection
+        Section("editor.watchAppearance") {
+          Toggle("editor.watchNative", isOn: Binding(
+            get: { draft.appearance.watch?.renderer == .nativeDoboo },
+            set: { enabled in
+              draft.appearance.watch = enabled ? .init(renderer: .nativeDoboo, tint: draft.appearance.tint) : nil
+            }))
+          Text("editor.watchHelp")
+            .font(.footnote).foregroundStyle(.secondary)
+        }
         if existing != nil {
           Section {
             Text("editor.update").font(.footnote).foregroundStyle(.secondary)
