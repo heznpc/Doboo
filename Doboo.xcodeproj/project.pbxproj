@@ -7,9 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		059C98101A65BD24A8962610 /* DobooProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE106B1A755FF6BECCB0B39C /* DobooProductViews.swift */; };
 		1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */; };
 		22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */; };
 		28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */; };
+		2ECC7A7278081FDB311CD02E /* BlobGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */; };
+		3BFCE89523F298718A0C0844 /* BlobGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */; };
+		4D0612B3CABF7CA74CFD7601 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C7BC73C60EEA8334FF1DDC0 /* Assets.xcassets */; };
+		634030C85319BBDFB65BC8F4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */; };
+		7D960D230E313D6AED2B70DC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6F5CE5A982C654D3D733F7C0 /* Localizable.strings */; };
 		87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81F3B6265B493C90A307BB5 /* ContentView.swift */; };
 		A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
 		C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3192B768E5A064F7205B25E /* DobooApp.swift */; };
@@ -26,13 +32,20 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		04FC797F8D7739DDCCB6CB1E /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		0C7BC73C60EEA8334FF1DDC0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooCharacterView.swift; sourceTree = "<group>"; };
 		4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionState.swift; sourceTree = "<group>"; };
+		5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometryTests.swift; sourceTree = "<group>"; };
+		69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometry.swift; sourceTree = "<group>"; };
 		76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftBlobShape.swift; sourceTree = "<group>"; };
+		8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B3192B768E5A064F7205B25E /* DobooApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooApp.swift; sourceTree = "<group>"; };
 		B35D9BE8ACCE00169C708B1D /* Doboo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doboo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B81F3B6265B493C90A307BB5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BFD53511DA444E06AD64519C /* DobooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DobooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE106B1A755FF6BECCB0B39C /* DobooProductViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooProductViews.swift; sourceTree = "<group>"; };
+		ECB75A07F815432BD0624254 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionStateTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -40,6 +53,7 @@
 		35F4704D9391ABD7F9C5ED80 = {
 			isa = PBXGroup;
 			children = (
+				FDD5F1C32023E06A132FC1CF /* Resources */,
 				BBF6CDF121A0DAC1CD620680 /* Sources */,
 				A3C8099C49037C729B6C6CB7 /* Tests */,
 				A66F110596364F9708314519 /* Products */,
@@ -49,6 +63,7 @@
 		A3C8099C49037C729B6C6CB7 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */,
 				F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */,
 			);
 			path = Tests;
@@ -69,6 +84,7 @@
 				B81F3B6265B493C90A307BB5 /* ContentView.swift */,
 				B3192B768E5A064F7205B25E /* DobooApp.swift */,
 				46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */,
+				DE106B1A755FF6BECCB0B39C /* DobooProductViews.swift */,
 				76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */,
 				C967DD7C60F3999B2CB625D2 /* Core */,
 			);
@@ -78,9 +94,20 @@
 		C967DD7C60F3999B2CB625D2 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */,
 				4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		FDD5F1C32023E06A132FC1CF /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				0C7BC73C60EEA8334FF1DDC0 /* Assets.xcassets */,
+				8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */,
+				6F5CE5A982C654D3D733F7C0 /* Localizable.strings */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -91,6 +118,7 @@
 			buildConfigurationList = 19882F575654B4FF242ADAED /* Build configuration list for PBXNativeTarget "Doboo" */;
 			buildPhases = (
 				D5D668EE12875C22602A15A6 /* Sources */,
+				458CA1142EA263E3F153513D /* Resources */,
 			);
 			buildRules = (
 			);
@@ -146,6 +174,7 @@
 			knownRegions = (
 				Base,
 				en,
+				ko,
 			);
 			mainGroup = 35F4704D9391ABD7F9C5ED80;
 			minimizedProjectReferenceProxies = 1;
@@ -160,11 +189,25 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		458CA1142EA263E3F153513D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D0612B3CABF7CA74CFD7601 /* Assets.xcassets in Resources */,
+				7D960D230E313D6AED2B70DC /* Localizable.strings in Resources */,
+				634030C85319BBDFB65BC8F4 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		00D74AA83DCE4B01BEF980FB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2ECC7A7278081FDB311CD02E /* BlobGeometryTests.swift in Sources */,
 				1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -173,10 +216,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3BFCE89523F298718A0C0844 /* BlobGeometry.swift in Sources */,
 				A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */,
 				87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */,
 				C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */,
 				28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */,
+				059C98101A65BD24A8962610 /* DobooProductViews.swift in Sources */,
 				22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -190,6 +235,18 @@
 			targetProxy = 56A3998D5A02AABCA28984EE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		6F5CE5A982C654D3D733F7C0 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				ECB75A07F815432BD0624254 /* en */,
+				04FC797F8D7739DDCCB6CB1E /* ko */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		0212E10A10B17FD64CF4FADD /* Debug */ = {
@@ -266,6 +323,7 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Doboo;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKWatchOnly = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = app.doboo;
@@ -379,6 +437,7 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Doboo;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKWatchOnly = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = app.doboo;
