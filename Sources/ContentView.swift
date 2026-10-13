@@ -2,71 +2,232 @@ import SwiftUI
 import WatchKit
 
 struct ContentView: View {
+  @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  @AppStorage("doboo.hasSeenWelcome") private var hasSeenWelcome = false
+  @AppStorage("doboo.hapticsEnabled") private var hapticsEnabled = true
+  @AppStorage("doboo.motionEnabled") private var motionEnabled = true
+
+  @GestureState private var isGestureActive = false
   @State private var interaction = BlobInteractionState()
-  @State private var recoil: CGFloat = 0
   @State private var hasPlayedPressHaptic = false
+  @State private var presentedSheet: DobooSheet?
+  @State private var accessiblePlayTask: Task<Void, Never>?
+  @State private var accessiblePlayID: UUID?
+
+  private var isForeground: Bool {
+    scenePhase == .active && !isLuminanceReduced
+  }
+
+  private var canInteract: Bool {
+    isForeground && presentedSheet == nil
+  }
+
+  private var canAnimate: Bool {
+    canInteract && motionEnabled && !reduceMotion
+  }
 
   var body: some View {
-    GeometryReader { proxy in
-      ZStack {
-        LinearGradient(
-          colors: [
-            Color(red: 0.08, green: 0.06, blue: 0.16), Color(red: 0.03, green: 0.02, blue: 0.08),
-          ],
-          startPoint: .top,
-          endPoint: .bottom
+    VStack(spacing: 0) {
+      GeometryReader { proxy in
+        ZStack {
+          ambientDots
+
+          TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !canAnimate)) { timeline in
+            DobooCharacterView(
+              interaction: interaction,
+              recoil: 0,
+              phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
+              motionEnabled: canAnimate
+            )
+          }
+        }
+        .contentShape(Rectangle())
+        .gesture(blobGesture(in: proxy.size))
+        .allowsHitTesting(canInteract)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("character.name")
+        .accessibilityValue(
+          interaction.isPressed
+            ? Text("character.state.pressed") : Text("character.state.resting")
         )
-        .ignoresSafeArea()
-
-        ambientDots
-
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-          DobooCharacterView(
-            interaction: interaction,
-            recoil: recoil,
-            phase: timeline.date.timeIntervalSinceReferenceDate
-          )
-          .frame(width: proxy.size.width, height: proxy.size.height)
+        .accessibilityHint("character.hint")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { playAccessibly(in: proxy.size) }
+        .accessibilityAction(named: "character.action.squeeze") {
+          playAccessibly(in: proxy.size)
         }
       }
-      .contentShape(Rectangle())
-      .gesture(blobGesture(in: proxy.size))
+
+      HStack {
+        Button {
+          present(.help)
+        } label: {
+          Image(systemName: "questionmark.circle")
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("help.title")
+
+        Spacer(minLength: 0)
+
+        Button {
+          present(.settings)
+        } label: {
+          Image(systemName: "gearshape")
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("settings.title")
+      }
+      .font(.body)
+      .buttonStyle(.plain)
+      .padding(.horizontal, 8)
+      .disabled(!isForeground)
+      .opacity(isLuminanceReduced ? 0 : 1)
+      .accessibilityHidden(isLuminanceReduced)
+    }
+    .background {
+      LinearGradient(
+        colors: [
+          Color(red: 0.08, green: 0.06, blue: 0.16), Color(red: 0.03, green: 0.02, blue: 0.08),
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+      )
+      .ignoresSafeArea()
+    }
+    .preferredColorScheme(.dark)
+    .sheet(item: $presentedSheet) { sheet in
+      switch sheet {
+      case .welcome:
+        DobooWelcomeView {
+          hasSeenWelcome = true
+          presentedSheet = nil
+        }
+      case .settings:
+        DobooSettingsView(hapticsEnabled: $hapticsEnabled, motionEnabled: $motionEnabled)
+      case .help:
+        DobooHelpSheetView()
+      }
+    }
+    .onAppear {
+      if !hasSeenWelcome { present(.welcome) }
+    }
+    .onDisappear { cancelInteraction() }
+    .onChange(of: canInteract) { _, enabled in
+      if !enabled { cancelInteraction() }
+    }
+    .onChange(of: canAnimate) { _, enabled in
+      if !enabled { cancelInteraction() }
+    }
+    .onChange(of: isGestureActive) { _, active in
+      // SwiftUI resets GestureState for interruptions as well as a normal end.
+      // A canceled drag does not call onEnded, so it must release here without a haptic.
+      if !active && accessiblePlayID == nil && interaction.isPressed { cancelInteraction() }
     }
   }
 
   private var ambientDots: some View {
-    ZStack {
-      Circle().fill(.white.opacity(0.18)).frame(width: 3).offset(x: -70, y: -72)
-      Circle().fill(.white.opacity(0.12)).frame(width: 2).offset(x: 62, y: -48)
-      Circle().fill(.white.opacity(0.10)).frame(width: 4).offset(x: 71, y: 64)
-      Circle().fill(.white.opacity(0.08)).frame(width: 3).offset(x: -65, y: 72)
+    GeometryReader { proxy in
+      ZStack {
+        Circle().fill(.white.opacity(0.18)).frame(width: 3)
+          .position(x: proxy.size.width * 0.14, y: proxy.size.height * 0.17)
+        Circle().fill(.white.opacity(0.12)).frame(width: 2)
+          .position(x: proxy.size.width * 0.83, y: proxy.size.height * 0.29)
+        Circle().fill(.white.opacity(0.10)).frame(width: 4)
+          .position(x: proxy.size.width * 0.87, y: proxy.size.height * 0.83)
+        Circle().fill(.white.opacity(0.08)).frame(width: 3)
+          .position(x: proxy.size.width * 0.16, y: proxy.size.height * 0.87)
+      }
     }
     .allowsHitTesting(false)
+    .accessibilityHidden(true)
   }
 
   private func blobGesture(in size: CGSize) -> some Gesture {
     DragGesture(minimumDistance: 0)
+      .updating($isGestureActive) { _, active, _ in active = true }
       .onChanged { value in
+        guard canInteract else {
+          cancelInteraction()
+          return
+        }
+        if accessiblePlayID != nil { cancelInteraction() }
+        guard interaction.press(at: value.location, in: size) else {
+          cancelInteraction()
+          return
+        }
         if !hasPlayedPressHaptic {
-          WKInterfaceDevice.current().play(.click)
+          playHaptic(.click)
           hasPlayedPressHaptic = true
         }
-
-        interaction.press(at: value.location, in: size)
       }
       .onEnded { _ in
-        let releasedTouch = interaction.release()
-        hasPlayedPressHaptic = false
-        WKInterfaceDevice.current().play(.directionUp)
-
-        recoil = min(1, 0.35 + hypot(releasedTouch.x, releasedTouch.y) * 0.65)
-        Task { @MainActor in
-          withAnimation(.spring(response: 0.52, dampingFraction: 0.38)) {
-            recoil = 0
-          }
+        guard accessiblePlayID == nil else { return }
+        guard canInteract else {
+          cancelInteraction()
+          return
         }
+        releaseInteraction()
       }
   }
+
+  private func releaseInteraction() {
+    guard interaction.isPressed else { return }
+    interaction.release()
+    hasPlayedPressHaptic = false
+    playHaptic(.directionUp)
+  }
+
+  private func cancelInteraction() {
+    accessiblePlayTask?.cancel()
+    accessiblePlayTask = nil
+    accessiblePlayID = nil
+    hasPlayedPressHaptic = false
+    var transaction = Transaction(animation: nil)
+    transaction.disablesAnimations = true
+    withTransaction(transaction) { interaction.cancel() }
+  }
+
+  private func playAccessibly(in size: CGSize) {
+    guard canInteract else { return }
+    cancelInteraction()
+    guard interaction.press(at: CGPoint(x: size.width * 0.7, y: size.height * 0.45), in: size)
+    else { return }
+    playHaptic(.click)
+
+    let playID = UUID()
+    accessiblePlayID = playID
+    accessiblePlayTask = Task { @MainActor in
+      do {
+        try await Task.sleep(for: .milliseconds(300))
+      } catch {
+        return
+      }
+      // Canceled or superseded actions must never release a newer touch.
+      guard !Task.isCancelled, accessiblePlayID == playID else { return }
+      releaseInteraction()
+      accessiblePlayID = nil
+      accessiblePlayTask = nil
+    }
+  }
+
+  private func playHaptic(_ type: WKHapticType) {
+    guard hapticsEnabled && canInteract else { return }
+    WKInterfaceDevice.current().play(type)
+  }
+
+  private func present(_ sheet: DobooSheet) {
+    cancelInteraction()
+    presentedSheet = sheet
+  }
+}
+
+private enum DobooSheet: String, Identifiable {
+  case welcome, settings, help
+
+  var id: String { rawValue }
 }
 
 #Preview {

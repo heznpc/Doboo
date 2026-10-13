@@ -20,28 +20,49 @@ struct BlobInteractionState: Equatable {
     return intensity > 0.82 ? .surprised : .squint
   }
 
-  mutating func press(at location: CGPoint, in size: CGSize) {
+  @discardableResult
+  mutating func press(at location: CGPoint, in size: CGSize) -> Bool {
+    guard Self.isValid(location: location, in: size) else {
+      cancel()
+      return false
+    }
+
     isPressed = true
     touch = Self.normalized(location: location, in: size)
+    return true
   }
 
   @discardableResult
   mutating func release() -> CGPoint {
+    guard isPressed else { return .zero }
     let recoil = touch
-    isPressed = false
-    touch = .zero
+    cancel()
     return recoil
   }
 
+  /// Ends an interrupted interaction without generating a release response.
+  mutating func cancel() {
+    isPressed = false
+    touch = .zero
+  }
+
   static func normalized(location: CGPoint, in size: CGSize) -> CGPoint {
-    guard size.width > 0, size.height > 0 else { return .zero }
+    guard isValid(location: location, in: size) else { return .zero }
     return CGPoint(
-      x: clamp((location.x / size.width) * 2 - 1),
-      y: clamp((location.y / size.height) * 2 - 1)
+      x: normalized(location.x, extent: size.width),
+      y: normalized(location.y, extent: size.height)
     )
   }
 
-  private static func clamp(_ value: CGFloat) -> CGFloat {
-    min(1, max(-1, value))
+  private static func isValid(location: CGPoint, in size: CGSize) -> Bool {
+    location.x.isFinite && location.y.isFinite
+      && size.width.isFinite && size.height.isFinite
+      && size.width > 0 && size.height > 0
+  }
+
+  private static func normalized(_ coordinate: CGFloat, extent: CGFloat) -> CGFloat {
+    // Clamp before dividing so even tiny valid layouts and distant drags stay finite.
+    let bounded = min(extent, max(0, coordinate))
+    return (bounded / extent) * 2 - 1
   }
 }

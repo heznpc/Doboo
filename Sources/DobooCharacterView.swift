@@ -4,15 +4,17 @@ struct DobooCharacterView: View {
   let interaction: BlobInteractionState
   let recoil: CGFloat
   let phase: TimeInterval
+  let motionEnabled: Bool
 
   private var breath: CGFloat {
-    CGFloat(sin(phase * 2.2))
+    motionEnabled ? CGFloat(sin(phase * 2.2)) : 0
   }
 
   private var blink: CGFloat {
+    guard motionEnabled else { return 1 }
     let cycle = phase.truncatingRemainder(dividingBy: 4.4)
     guard cycle > 4.05 else { return 1 }
-    return max(0.12, abs(CGFloat(cycle - 4.22)) * 9)
+    return min(1, max(0.12, abs(CGFloat(cycle - 4.22)) * 9))
   }
 
   private var eyeHeight: CGFloat {
@@ -64,11 +66,18 @@ struct DobooCharacterView: View {
         y: 1 - pressure * 0.055 + recoil * 0.075
       )
       .offset(x: touch.x * pressure * 5, y: touch.y * pressure * 4)
-      .animation(.interactiveSpring(response: 0.18, dampingFraction: 0.68), value: interaction)
-      .accessibilityElement(children: .ignore)
-      .accessibilityLabel("Doboo")
-      .accessibilityValue(interaction.isPressed ? "말랑하게 눌리는 중" : "편안하게 숨 쉬는 중")
-      .accessibilityHint("누르고 끌어서 Doboo와 놀아 보세요")
+      .animation(
+        motionEnabled
+          ? .interactiveSpring(
+            response: interaction.isPressed ? 0.18 : 0.52,
+            dampingFraction: interaction.isPressed ? 0.68 : 0.48
+          ) : nil,
+        value: interaction
+      )
+      .transaction { transaction in
+        if !motionEnabled { transaction.disablesAnimations = true }
+      }
+      .accessibilityHidden(true)
     }
   }
 
@@ -137,7 +146,7 @@ private struct SmileShape: Shape {
     path.move(to: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.28))
     path.addQuadCurve(
       to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.28),
-      control: CGPoint(x: rect.midX, y: rect.maxY * curve)
+      control: CGPoint(x: rect.midX, y: rect.minY + rect.height * curve)
     )
     return path
   }
