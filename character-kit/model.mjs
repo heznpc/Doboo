@@ -29,7 +29,7 @@ export function validateCharacter(raw) {
   object(raw.personality, ['traits','instructions'], 'personality');
   list(raw.personality.traits, 20, 160, '성격');
   list(raw.personality.instructions, 30, 500, '행동 지침');
-  object(raw.appearance, ['renderer','tint','sprite'], 'appearance');
+  object(raw.appearance, ['renderer','tint','sprite','watch'], 'appearance');
   if (!['native-doboo','spritesheet'].includes(raw.appearance.renderer)) throw new TypeError('외형 렌더러가 잘못되었습니다.');
   if (typeof raw.appearance.tint !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(raw.appearance.tint)) throw new TypeError('색상은 #RRGGBB 형식이어야 합니다.');
   if (raw.appearance.sprite !== undefined) {
@@ -39,6 +39,10 @@ export function validateCharacter(raw) {
   }
   if (raw.appearance.renderer === 'spritesheet' && !raw.appearance.sprite) throw new TypeError('스프라이트 외형에 PNG 이미지가 필요합니다.');
   if (raw.appearance.renderer === 'native-doboo' && raw.appearance.sprite) throw new TypeError('기본 외형에는 스프라이트를 함께 지정할 수 없습니다.');
+  if (raw.appearance.watch !== undefined) {
+    object(raw.appearance.watch, ['renderer','tint','sprite'], 'appearance.watch');
+    validateCharacter({ ...raw, appearance: raw.appearance.watch });
+  }
   if (Buffer.byteLength(JSON.stringify(raw)) > MAX_JSON_BYTES) throw new TypeError('캐릭터 파일은 32 MiB 이하여야 합니다.');
   return structuredClone(raw);
 }

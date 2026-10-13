@@ -10,6 +10,7 @@ export interface CharacterPack {
   identity: { backstory: string; voice: string };
   personality: { traits: string[]; instructions: string[] };
   appearance: { renderer: 'native-doboo' | 'spritesheet'; tint: string;
+    watch?: { renderer: 'native-doboo' | 'spritesheet'; tint: string; sprite?: { layout: 'pets-v1' | 'pets-v2'; mimeType: 'image/png'; base64: string } };
     sprite?: { layout: 'pets-v1' | 'pets-v2'; mimeType: 'image/png'; base64: string } };
 }
 export interface CharacterReference { id: string; version: number; digest: string }

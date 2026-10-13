@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
   static let formatName = "doboo.character.v1"
@@ -25,6 +26,12 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
       var mimeType: String
       var base64: String
     }
+    struct Watch: Codable, Equatable, Sendable {
+      var renderer: Renderer
+      var tint: String
+      var sprite: Sprite?
+    }
+    var watch: Watch? = nil
     var renderer: Renderer
     var tint: String
     var sprite: Sprite?
@@ -44,6 +51,23 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
 
   var spriteData: Data? {
     appearance.sprite.flatMap { Data(base64Encoded: $0.base64) }
+  }
+
+  /// Same identity/revision; a host-specific representation, not a new character.
+  var watchRepresentation: CharacterPack {
+    guard let watch = appearance.watch else { return self }
+    var copy = self
+    copy.appearance = .init(renderer: watch.renderer, tint: watch.tint, sprite: watch.sprite)
+    return copy
+  }
+
+  var definitionSHA256: String {
+    get throws {
+      let encoder = JSONEncoder()
+      encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+      let data = try encoder.encode(self)
+      return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
   }
 
   static let builtin = CharacterPack(
@@ -75,7 +99,11 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
     let root = try object(raw, allowed: ["format", "id", "version", "name", "description", "creator", "identity", "personality", "appearance"])
     _ = try object(root["identity"], allowed: ["backstory", "voice"])
     _ = try object(root["personality"], allowed: ["traits", "instructions"])
-    let appearance = try object(root["appearance"], allowed: ["renderer", "tint", "sprite"])
+    let appearance = try object(root["appearance"], allowed: ["renderer", "tint", "sprite", "watch"])
+    if let watch = appearance["watch"] {
+      let value = try object(watch, allowed: ["renderer", "tint", "sprite"])
+      if let sprite = value["sprite"] { _ = try object(sprite, allowed: ["layout", "mimeType", "base64"]) }
+    }
     if let sprite = appearance["sprite"] {
       _ = try object(sprite, allowed: ["layout", "mimeType", "base64"])
     }
@@ -129,6 +157,7 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
         throw CharacterPackError.invalidImageDimensions
       }
     }
+    if appearance.watch != nil { _ = try watchRepresentation.validated() }
     return self
   }
 

@@ -31,3 +31,7 @@ Dewey 검증에서는 실제 계정의 stable ID `dewey`로 원본 시트를 받
 ## Watch
 
 iPhone 앱에서 exact pack을 가져와 기존 WatchConnectivity 경로로 전달합니다. 송신 queue·송신 callback·Watch 저장 후 수신 확인·실제 선택/표시는 각각 다른 상태입니다. 실제 검증 결과는 [검증 기록](QUALITY_REVIEW.md)을 따릅니다.
+
+## 제작·갱신 파이프라인
+
+공식 제작 스크립트를 실행하는 MCP 도구와 호스트 스킬, stable Pet ID 기반 생성/갱신 상태 관리, 저장 이미지 대조, 버전·정의 해시를 확인하는 Watch 수신증을 연결했습니다. Pets와 Watch의 픽셀 일치는 요구하지 않으며 `appearance.watch`로 별도 표현을 보존합니다. 실제 생성·등록·실물 전달의 미검증 항목은 [제작 파이프라인 검증 기록](CREATION_PIPELINE.md#observed-verification-2026-10-13)을 따릅니다.

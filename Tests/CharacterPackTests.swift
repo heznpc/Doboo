@@ -19,6 +19,22 @@ struct CharacterPackTests {
     return try JSONSerialization.data(withJSONObject: value)
   }
 
+  @Test func watchRepresentationPreservesCharacterRevision() throws {
+    var pack = CharacterPack.builtin
+    pack.version = 2
+    pack.appearance.watch = .init(renderer: .nativeDoboo, tint: "#123456")
+    let decoded = try CharacterPack.decode(pack.encoded())
+    #expect(decoded == pack)
+    #expect(decoded.watchRepresentation.id == pack.id)
+    #expect(decoded.watchRepresentation.version == pack.version)
+    #expect(decoded.watchRepresentation.identity == pack.identity)
+    #expect(decoded.watchRepresentation.personality == pack.personality)
+    #expect(decoded.watchRepresentation.appearance.tint == "#123456")
+    #expect(decoded.watchRepresentation.appearance.watch == nil)
+    pack.appearance.watch?.tint = "red"
+    #expect(throws: (any Error).self) { try pack.validated() }
+  }
+
   @Test func characterRoundTripPreservesIdentityAndPersonality() throws {
     let pack = CharacterPack.builtin
     #expect(try CharacterPack.decode(pack.encoded()) == pack)

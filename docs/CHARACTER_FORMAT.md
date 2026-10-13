@@ -18,6 +18,7 @@ of tool permissions. Sharing it includes its full text and embedded artwork.
 | `appearance.renderer` | `native-doboo` or `spritesheet` |
 | `appearance.tint` | `#RRGGBB` |
 | `appearance.sprite` | Required for `spritesheet`: `layout`, `mimeType`, `base64` |
+| `appearance.watch` | Optional separate `renderer`, `tint`, `sprite` representation for the same character; no nested override |
 
 Sprite files are embedded PNG (`image/png`), at most 20 MiB after base64
 decoding. `pets-v1` is 1536×1872; `pets-v2` is 1536×2288. Both use 192×208
@@ -57,3 +58,8 @@ Sources checked 2026-10-13: [Pets](https://learn.chatgpt.com/docs/pets),
 [custom agents](https://learn.chatgpt.com/docs/agent-configuration/subagents).
 The v2 layout also follows the installed work-pets 0.1.6 sprite contract;
 support in every ChatGPT client is not assumed.
+
+The production plugin now connects customization, installed OpenAI Pets v2 tools,
+authenticated host registration/update and version-bound Watch receipts. See
+[CREATION_PIPELINE.md](CREATION_PIPELINE.md) for the executable flow and actual
+verification limits. File export alone is not publication.

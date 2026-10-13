@@ -37,6 +37,9 @@ final class SpriteAtlas {
 
   static func validate(_ pack: CharacterPack) throws {
     if pack.appearance.renderer == .spritesheet { _ = try SpriteAtlas(pack: pack) }
+    if pack.appearance.watch != nil, pack.watchRepresentation.appearance.renderer == .spritesheet {
+      _ = try SpriteAtlas(pack: pack.watchRepresentation)
+    }
   }
 }
 

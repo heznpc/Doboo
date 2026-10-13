@@ -9,6 +9,7 @@ import { renderDots, renderCharacterContext } from '../../../character-kit/expor
 import { createHostAdapters } from './host-adapters.js';
 import { createCharacterLibrary, characterReference, readCharacterFile } from './character-library.js';
 import { CatalogClient } from './catalog-client.js';
+import { createCreationPipeline } from './creation-pipeline.js';
 import galleryHTML from './gallery.html';
 
 export const UI_URI='ui://doboo/gallery-v1.html';
@@ -24,6 +25,7 @@ export function createDobooServer(env:NodeJS.ProcessEnv=process.env) {
   const workspace=env.DOBOO_WORKSPACE || null;
   if(workspace&&!isAbsolute(workspace))throw new Error('DOBOO_WORKSPACE must be an absolute project path.');
   const libraryDirectory=join(data,'library');
+  const creation=createCreationPipeline(data,env);
   const library=createCharacterLibrary({libraryDirectory});
   const adapters=createHostAdapters({libraryDirectory,projectDirectory:data});
   const projectAdapters=(path?:string)=>{
@@ -81,6 +83,16 @@ export function createDobooServer(env:NodeJS.ProcessEnv=process.env) {
       watch:{packPath:join(libraryDirectory,`${id}.doboo.json`),next:'Import this exact pack in Doboo on iPhone and send to Watch; inspect receiver acknowledgement.'},hostApplied:false};
   }));
   server.registerTool('host_status',{description:'Inspect installed/exported local artifacts for the specified actual task projectDirectory. Does not infer that another host activated the character.',inputSchema:{id,projectDirectory},annotations:read},safe(async({id,projectDirectory})=>({hosts:await projectAdapters(projectDirectory).readHostStatus(id)})));
+  const runId=z.string().uuid();
+  server.registerTool('begin_character_creation',{description:'Customize a character revision and prepare the installed OpenAI work-pets v2 generation jobs. Does not fabricate artwork or publish. Activation is off by default; set activate only when the user requests changing their active Pet.',inputSchema:{character:z.unknown(),brief:z.string().min(1).max(8000),style:z.string().optional(),referenceImages:z.array(z.string()).max(5).optional(),activate:z.boolean().optional()},annotations:write},safe(async({character,brief,style,referenceImages,activate})=>creation.prepare(character,brief,style,referenceImages,activate)));
+  server.registerTool('creation_status',{description:'Read resumable generation jobs, concrete prompts/references, Pets lifecycle and Watch receipt status.',inputSchema:{runId},annotations:read},safe(async({runId})=>creation.status(runId)));
+  server.registerTool('supply_character_artwork',{description:'Attach one imagegen-produced PNG to a ready generation job, with concrete visual review. Does not generate pixels itself.',inputSchema:{runId,jobId:z.string(),filePath:z.string(),review:z.string().min(20)},annotations:write},safe(async({runId,jobId,filePath,review})=>creation.supplyArtwork(runId,jobId,filePath,review)));
+  server.registerTool('run_character_production',{description:'Execute installed OpenAI work-pets assembly/validation scripts for a production stage. Missing art, direction reviews or failing quality gates block publication.',inputSchema:{runId,stage:z.enum(['standard-rows','cardinals','look-row-9','assemble-v2','validate-v2'])},annotations:write},safe(async({runId,stage})=>creation.runStage(runId,stage)));
+  server.registerTool('next_pet_action',{description:'Return the next exact authenticated Pets tool call for this validated revision. Reuses a pending action after an unknown outcome. Invoke it through the host, then record the actual result.',inputSchema:{runId},annotations:write},safe(async({runId})=>creation.nextPetAction(runId)));
+  server.registerTool('record_pet_response',{description:'Record an actual authenticated Pets tool response for its pending action ID. Host-reported evidence, not independent server attestation. Never synthesize responses.',inputSchema:{runId,actionId:z.string().uuid(),response:z.unknown()},annotations:write},safe(async({runId,actionId,response})=>creation.recordPetResponse(runId,actionId,response)));
+  server.registerTool('retry_pet_upload',{description:'Prepare a fresh upload only after an explicit failed publication response. Unknown outcomes must retry the existing action/session.',inputSchema:{runId,failedActionId:z.string().uuid(),response:z.unknown(),failureKind:z.enum(['expired-session','rejected-before-publication'])},annotations:write},safe(async({runId,failedActionId,response,failureKind})=>creation.retryUpload(runId,failedActionId,response,failureKind)));
+  server.registerTool('verify_pet_download',{description:'Compare the stored Pet download with the validated atlas bytes and install the exact character revision in the library. Does not accept a URL as proof.',inputSchema:{runId,filePath:z.string()},annotations:write},safe(async({runId,filePath})=>creation.verifyPetDownload(runId,filePath)));
+  server.registerTool('record_watch_receipt',{description:'Read a supplied Watch receiver receipt; require the exact ID, version, semantic definition hash and selected state. Transport-byte validation happens in the native receiver. This tool does not access a device; visual Watch inspection is separate.',inputSchema:{runId,filePath:z.string()},annotations:write},safe(async({runId,filePath})=>creation.recordWatchReceipt(runId,filePath)));
   server.registerResource('Doboo gallery',UI_URI,{mimeType:'text/html;profile=mcp-app'},async()=>({contents:[{uri:UI_URI,mimeType:'text/html;profile=mcp-app',text:galleryHTML,_meta:{ui:{prefersBorder:true,csp:{connectDomains:[],resourceDomains:[]}}}}]}));
   return server;
 }

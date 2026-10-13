@@ -95,3 +95,7 @@
 "character.dotsShare" = "Share Dots instructions";
 "character.spriteMissing" = "Attach a sprite sheet in the editor to share a Pets appearance.";
 "character.exportHelp" = "Apply Dots instructions and subagents in their host. Memory and task state are not synchronized.";
+
+"editor.watchAppearance" = "Watch appearance";
+"editor.watchNative" = "Use the soft Doboo form on Watch";
+"editor.watchHelp" = "Keep the same name, personality and version. Turn this off to use the original sprite for characters with a different shape.";

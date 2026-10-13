@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, mkdir, mkdtemp, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -14,7 +15,8 @@ const swiftSources = (await readdir(join(root, 'Sources/Core')))
 const executable = join(run, 'verify-pack');
 execFileSync('swiftc', [...swiftSources, join(root, 'scripts/verify_pack.swift'), '-o', executable]);
 const seed = JSON.parse(await readFile(join(root, 'Characters/doboo.doboo.json'), 'utf8'));
-const characters = [{ ...seed, id: 'doboo-exchange', name: 'Doboo exchange' }];
+const characters = [{ ...seed, id: 'doboo-exchange', name: 'Doboo exchange', appearance: {...seed.appearance, watch:{renderer:'native-doboo',tint:'#F3A38C'}} }];
+function canonical(x){if(Array.isArray(x))return `[${x.map(canonical).join(',')}]`;if(x!==null&&typeof x==='object')return `{${Object.keys(x).sort().map(k=>`${JSON.stringify(k)}:${canonical(x[k])}`).join(',')}}`;return JSON.stringify(x);}
 if (process.argv[2]) {
   const png = await readFile(resolve(process.argv[2]));
   const height = png.readUInt32BE(20);
@@ -31,6 +33,7 @@ for (const original of characters) {
   const roundtrip = join(run, `${original.id}.native.doboo.json`);
   await writeFile(source, serializeCharacter(original));
   execFileSync(executable, [source, roundtrip]);
+  assert.equal(await readFile(`${roundtrip}.sha256`,'utf8'),createHash('sha256').update(canonical(original)).digest('hex'),'Swift and MCP must bind receipts to the same semantic definition');
   const native = parseCharacter(await readFile(roundtrip, 'utf8'));
   assert.deepEqual(native, original, 'Native exchange must preserve all fields and sprite bytes');
   const output = join(run, original.id);

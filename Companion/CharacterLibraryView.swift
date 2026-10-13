@@ -227,7 +227,7 @@ struct CharacterPlayView: View {
   var body: some View {
     GeometryReader { proxy in
       TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { time in
-        PackCharacterView(pack: pack, interaction: interaction,
+        PackCharacterView(pack: pack.watchRepresentation, interaction: interaction,
           phase: animated ? time.date.timeIntervalSinceReferenceDate : 0, motionEnabled: animated)
       }
       .contentShape(Rectangle())
