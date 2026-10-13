@@ -9,3 +9,6 @@ work/
 node_modules/
 __pycache__/
 *.py[cod]
+/task-bridge/README.md
+/task-bridge/VERIFICATION.md
+/task-bridge/verification.json

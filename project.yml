@@ -86,7 +86,9 @@ targets:
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
-    scheme: {}
+    scheme:
+      testTargets:
+        - DobooCompanionUITests
   DobooTests:
     type: bundle.unit-test
     platform: watchOS
@@ -98,3 +100,16 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.doboo.tests
         GENERATE_INFOPLIST_FILE: YES
+
+  DobooCompanionUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: DobooLibrary
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.doboo.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: DobooLibrary

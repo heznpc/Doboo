@@ -23,8 +23,8 @@ final class SpriteAtlas {
     else { throw CharacterPackError.invalidImage }
     image = decoded
     layout = sprite.layout
-    for row in [0, 9, 10] where row < layout.rows {
-      for column in 0..<(row == 0 ? 6 : 8) {
+    for row in 0..<layout.rows {
+      for column in 0..<8 {
         let rect = CGRect(x: column * SpriteFrame.width, y: row * SpriteFrame.height,
                           width: SpriteFrame.width, height: SpriteFrame.height)
         guard let frame = decoded.cropping(to: rect) else { throw CharacterPackError.invalidImage }
@@ -48,6 +48,7 @@ struct PackCharacterView: View {
   let interaction: BlobInteractionState
   let phase: TimeInterval
   let motionEnabled: Bool
+  var taskStatus: String? = nil
   @State private var atlas: SpriteAtlas?
   @State private var failed = false
 
@@ -59,7 +60,7 @@ struct PackCharacterView: View {
       } else if let atlas {
         let frame = SpriteFrame.frame(layout: atlas.layout, elapsed: phase,
           touchX: interaction.touch.x, touchY: interaction.touch.y,
-          pressed: interaction.isPressed, motionEnabled: motionEnabled)
+          pressed: interaction.isPressed, motionEnabled: motionEnabled, taskStatus: taskStatus)
         if let image = atlas.image(for: frame) {
           Image(decorative: image, scale: 1)
             .resizable().interpolation(.high).scaledToFit()

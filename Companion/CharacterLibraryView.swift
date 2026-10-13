@@ -215,6 +215,7 @@ private struct DotInstructionsView: View {
 /// Uses the same interaction state and renderer as Watch, with iPhone haptics.
 struct CharacterPlayView: View {
   let pack: CharacterPack
+  var taskStatus: String? = nil
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
   @GestureState private var dragging = false
@@ -228,7 +229,7 @@ struct CharacterPlayView: View {
     GeometryReader { proxy in
       TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { time in
         PackCharacterView(pack: pack.watchRepresentation, interaction: interaction,
-          phase: animated ? time.date.timeIntervalSinceReferenceDate : 0, motionEnabled: animated)
+          phase: animated ? time.date.timeIntervalSinceReferenceDate : 0, motionEnabled: animated, taskStatus: taskStatus)
       }
       .contentShape(Rectangle())
       .gesture(DragGesture(minimumDistance: 0).updating($dragging) { _, active, _ in active = true }
