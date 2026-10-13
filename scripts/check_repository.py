@@ -27,7 +27,7 @@ def localization(path):
 
 
 def main():
-    project = (ROOT / "Doboo.xcodeproj/project.pbxproj").read_text()
+    project = (ROOT / "Doboo.xcodeproj/project.pbxproj").read_text(encoding="utf-8")
     # Every source must be present in a source build phase, not just a navigator group.
     phases = re.findall(r'isa = PBXSourcesBuildPhase;(.*?)runOnlyForDeploymentPostprocessing', project, re.S)
     memberships = "\n".join(phases)
@@ -52,7 +52,7 @@ def main():
     # Product-facing keys have a stable dotted namespace; defaults keys use doboo's prefix.
     used_keys = set()
     for path in source_files:
-        source = re.sub(r'.accessibilityIdentifier\("[^"\n]*"\)', "", path.read_text())
+        source = re.sub(r'.accessibilityIdentifier\("[^"\n]*"\)', "", path.read_text(encoding="utf-8"))
         used_keys.update(re.findall(r'"((?:app|about|welcome|accessibility|onboarding|settings|help|privacy|common|character|library|transfer|editor|export|gallery)\.[A-Za-z0-9_.]+)"', source))
     used_keys.discard("library.json")
     missing = used_keys - translations["en"].keys()
@@ -67,7 +67,7 @@ def main():
             "UserDefaults preference storage must have a required-reason declaration")
 
     asset = ROOT / "Resources/Assets.xcassets/AppIcon.appiconset"
-    catalog = json.loads((asset / "Contents.json").read_text())
+    catalog = json.loads((asset / "Contents.json").read_text(encoding="utf-8"))
     for entry in catalog["images"]:
         png = (asset / entry["filename"]).read_bytes()
         require(png[:8] == b"\x89PNG\r\n\x1a\n", "Icon is not PNG")
