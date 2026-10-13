@@ -90,34 +90,49 @@ does not imply their persistent settings or live work-state synchronization.
 
 ## Observed verification, 2026-10-13
 
-- Real bundled MCP server invoked the installed preparation script, produced the
-  base job and exact identity references, and rejected publication without art.
-- Authenticated Pets `validate_pet_spritesheet` accepted the existing v1 check
-  asset; OpenAI's `--require-v2` validator rejected it for new v2 production.
-  This is preflight verification, not a new custom Pet registration.
-- Lifecycle tests exercise stable-ID updates, stale action rejection, ambiguous
-  retries, pagination, changed bytes, concurrent publication and stale Watch
-  receipts using explicitly isolated fixtures. They also verify opt-in activation,
-  preservation of the current Pet, early input rejection, and invalidation of
-  visual verdicts after artwork repair. The plugin suite passes 32 tests with one
-  platform-specific skip; these are not live create/update calls.
-- Swift tests and independent Swift/JavaScript file interchange pass, including
-  differing Watch representation and matching semantic hashes (26 Swift and six
-  character-tool tests). TypeScript checking and repository consistency pass.
-- Image generation was retried through the built-in tool and failed before an
-  image was produced: HTTP 400, `quotapie_subscription_guard`,
-  `subscription_route_unsupported`. Inspection of the running relay shows its
-  subscription guard accepts POST `/responses` and `/responses/compact`, and
-  GET `/models`; other routes are rejected before upstream forwarding. This is
-  an unsupported protected route, not evidence of exhausted quota or invalid art.
-- The authenticated Pets list remains reachable and contains no Doboo custom Pet.
-  This does not demonstrate create/update, which still needs validated artwork.
-- This verification pass uses no simulator or physical device. Native receipt
-  and rendering remain unverified for the generated revision.
+The actual subscription generation → v2 validation → Pets registration → visual
+update → metadata update path was exercised, not replaced by lifecycle fixtures.
 
-The full creation/registration/update flow is **not yet verified**. A supported,
-user-authorized image-generation route is required before continuing the saved
-base job. Protection remains enabled; no account switch or paid fallback is
-attempted. Do not upload a built-in Pet, blank fixture or unvalidated replacement
-as a substitute for the requested character. The resumable production run is
-preserved, so recovery does not require device access or a new character ID.
+- QuotaPie previously rejected native image requests with HTTP 400,
+  `quotapie_subscription_guard` / `subscription_route_unsupported`. Its protected
+  route list omitted `/images/generations` and `/images/edits`. QuotaPie commit
+  `c0e15d7` admits those native subscription routes while retaining the source
+  account, quota/reserve cutoffs, report-only restrictions and in-flight abort.
+  No protection disablement, account switch, paid API route or API key was used.
+  Built-in imagegen subsequently produced the base, motion and look artwork.
+- A source-image edit was also generated through built-in imagegen: the previous
+  canonical image was the edit target, identity references remained separate,
+  and the requested mouth change was saved in a linked draft without overwriting
+  the original. This draft was not substituted for the published character.
+- Version 2 passed installed OpenAI work-pets structural/quality scripts and
+  three independent blind direction reviews. The authenticated Pets tools then
+  validated, uploaded and created one custom Doboo Pet. List readback and a
+  download of the stored sheet confirmed its identity and exact decoded pixels.
+  Atlas SHA-256: `58e165e4ea022c2c60abf37df681b75ab582e6618cf2bd2b2ede58bc0dd2e1e6`.
+- Version 3 changed the waving animation through built-in imagegen, with the
+  downloaded actual Pet as an identity reference. The complete atlas was rebuilt
+  and revalidated. All sixteen look cells were byte-identical in decoded RGBA
+  to the independently reviewed parent. `update_pet` retained the same custom
+  Pet ID; list readback and a new stored download matched the validated pixels.
+  Atlas SHA-256: `933167c74f3de8fa98ba0763664ce3a86408211b9c9f58db5c32c2f40b448957`.
+- Version 4 changed the description using a real metadata-only `update_pet` and
+  list readback, with no image upload. All three publications preserved the
+  existing active Dewey selection. The verified revisions and stable binding
+  are retained in installed plugin data; a fresh process of the installed plugin
+  reports the final revision as `pets-confirmed`. An already loaded older MCP
+  process does not acquire new tool definitions until the host reconnects it.
+- The quality report is `ok: true`, with 29-pixel jump lift, zero landing delta
+  and maximum look-center drift of one pixel. Two reviewed look-continuity
+  warnings remain (157.5-degree spacing and the 337.5→000 transition); these are
+  documented visual limitations, not missing structural frames.
+- Plugin tests: 37 passed, one platform-specific skip. Character-tool tests:
+  six passed. TypeScript and repository consistency checks passed. Regression
+  cases include old-parent metadata edits, full reference capacity, unchanged
+  source retention, stable IDs, pending outcomes and stale Watch receipts.
+- No simulator or physical device was accessed. The final version contains the
+  distinct Watch representation, but Watch delivery and rendering for this
+  revision remain unverified. No receipt was invented.
+
+Final previews, exact prompts, source images, host receipts and downloads remain
+in the private production runs. They are not committed as account-specific
+fixtures or presented as a shared-gallery publication.
