@@ -1,20 +1,23 @@
 # Verification guide
 
-## Core and resource checks
+## Character identity and exchange
 
-Run the core Swift tests and `python3 scripts/check_repository.py` to check
-interaction state, invalid coordinates and sizes, localization keys, project
-references, resources, privacy declarations and asset metadata. Use `plutil`
-to validate the project, plist and localization file formats.
+- Run the Swift core tests, JavaScript character tests and source consistency checks.
+- Round-trip native export, file import and re-export with the same ID and revision.
+- Compare all character settings and sprite bytes; test malformed input and revision conflicts.
+- Parse generated Dot instructions and agent TOML; distinguish generated files from host execution.
+- Check imported sprite alignment, localization, persistence across restart and sharing UI.
 
-## Native application checks
+## Host and device boundaries
 
-- Build the watchOS application with its normal resources and icon assets.
-- Check release and cancellation, rapid touches, scene transitions and inactive state.
-- Check VoiceOver actions and focus, large text, onboarding and settings.
-- Check Always On, Reduce Motion, motion preferences, haptics and power use.
-- Check signing, packaging, archive metadata, privacy/support URLs and store assets.
+- Build the production application with its included Watch app, resources and icons.
+- Verify host connection, tool discovery and resource retrieval independently of model behavior.
+- For a catalog, test authenticated publication, discovery, adoption and receipt persistence.
+- For a Pet, verify the selected stable ID separately from custom-image creation or update.
+- For a Dot or named agent, verify the requested behavior in the intended host.
+- For Watch transfer, distinguish queueing, sending, receiver validation, storage and display.
+- Check device provisioning and connectivity before using installation as execution evidence.
 
-Static consistency checks do not substitute for compilation, UI interaction,
-physical-device observations or distribution validation. Record each check and
-its environment independently; keep account and device diagnostics private.
+Keep local account, device and diagnostic records outside the public repository.
+Fixture exchanges, compilation and file generation do not prove another user's
+host behavior or physical-device delivery.

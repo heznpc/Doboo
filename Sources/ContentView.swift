@@ -2,6 +2,7 @@ import SwiftUI
 import WatchKit
 
 struct ContentView: View {
+  @Bindable var library: CharacterLibrary
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.isLuminanceReduced) private var isLuminanceReduced
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -31,14 +32,16 @@ struct ContentView: View {
 
   var body: some View {
     VStack(spacing: 0) {
+      Text(library.selected.name).font(.caption.weight(.semibold)).lineLimit(1)
+        .accessibilityIdentifier("character.activeName")
       GeometryReader { proxy in
         ZStack {
           ambientDots
 
           TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !canAnimate)) { timeline in
-            DobooCharacterView(
+            PackCharacterView(
+              pack: library.selected,
               interaction: interaction,
-              recoil: 0,
               phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
               motionEnabled: canAnimate
             )
@@ -48,7 +51,7 @@ struct ContentView: View {
         .gesture(blobGesture(in: proxy.size))
         .allowsHitTesting(canInteract)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("character.name")
+        .accessibilityLabel(library.selected.name)
         .accessibilityValue(
           interaction.isPressed
             ? Text("character.state.pressed") : Text("character.state.resting")
@@ -69,6 +72,13 @@ struct ContentView: View {
             .frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityLabel("help.title")
+
+        Spacer(minLength: 0)
+
+        Button { present(.characters) } label: {
+          Image(systemName: "person.crop.square.stack").frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("library.title")
 
         Spacer(minLength: 0)
 
@@ -109,8 +119,15 @@ struct ContentView: View {
         DobooSettingsView(hapticsEnabled: $hapticsEnabled, motionEnabled: $motionEnabled)
       case .help:
         DobooHelpSheetView()
+      case .characters:
+        WatchLibraryView(library: library)
       }
     }
+    .alert("library.errorTitle", isPresented: Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })) {
+      Button("common.ok", role: .cancel) { library.errorMessage = nil }
+    } message: { Text(library.errorMessage ?? "") }
+    .onChange(of: library.selected.id) { _, _ in cancelInteraction() }
+    .onChange(of: library.selected.version) { _, _ in cancelInteraction() }
     .onAppear {
       if !hasSeenWelcome { present(.welcome) }
     }
@@ -225,11 +242,11 @@ struct ContentView: View {
 }
 
 private enum DobooSheet: String, Identifiable {
-  case welcome, settings, help
+  case welcome, settings, help, characters
 
   var id: String { rawValue }
 }
 
 #Preview {
-  ContentView()
+  ContentView(library: CharacterLibrary())
 }

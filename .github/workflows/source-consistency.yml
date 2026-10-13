@@ -16,3 +16,14 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Check source and resource consistency without running the app
         run: python3 scripts/check_repository.py
+      - name: Test character interchange tools
+        run: npm test
+  native-core:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Test native character persistence and interaction
+        run: swift test
+      - name: Verify file exchange and host outputs
+        run: node scripts/check_interchange.mjs

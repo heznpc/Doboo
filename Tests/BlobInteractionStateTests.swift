@@ -70,7 +70,8 @@ struct BlobInteractionStateTests {
       var state = BlobInteractionState()
       state.press(at: CGPoint(x: 100, y: 0), in: CGSize(width: 100, height: 100))
 
-      #expect(!state.press(at: CGPoint(x: 10, y: 10), in: size))
+      let accepted = state.press(at: CGPoint(x: 10, y: 10), in: size)
+      #expect(!accepted)
       #expect(state == BlobInteractionState())
       #expect(state.intensity == 0)
       #expect(state.release() == .zero)
@@ -90,7 +91,8 @@ struct BlobInteractionStateTests {
       var state = BlobInteractionState()
       state.press(at: CGPoint(x: 80, y: 20), in: size)
 
-      #expect(!state.press(at: location, in: size))
+      let accepted = state.press(at: location, in: size)
+      #expect(!accepted)
       #expect(state == BlobInteractionState())
       #expect(BlobInteractionState.normalized(location: location, in: size) == .zero)
     }
@@ -117,7 +119,8 @@ struct BlobInteractionStateTests {
 
     #expect(state == BlobInteractionState())
     #expect(state.release() == .zero)
-    #expect(state.press(at: CGPoint(x: 50, y: 50), in: size))
+    let accepted = state.press(at: CGPoint(x: 50, y: 50), in: size)
+    #expect(accepted)
     #expect(state.isPressed)
     #expect(state.expression == .squint)
   }
