@@ -3,6 +3,10 @@
 Doboo shares one character definition across Pets, Dots, subagents and the Watch
 experience, with a gallery for character exchange.
 
+The common MCP server supports host-specific plugin connections. The gallery
+MCP App is optional UI; the same discovery, inspection, adoption and character
+context tools work without it. Apple Watch is one optional device adapter.
+
 ## One file across the experience
 
 `Characters/*.doboo.json` is the common character definition. The native gallery creates, imports

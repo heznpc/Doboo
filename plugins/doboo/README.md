@@ -6,7 +6,7 @@
 
 ## 설치와 실행
 
-Node.js 22 이상과 로컬 플러그인 설치를 지원하는 Codex가 필요합니다. 저장소 루트에서:
+MCP 서버에는 Node.js 22 이상이 필요합니다. Apple 기기나 OpenAI 계정은 서버의 검색·수신·보관·컨텍스트 읽기 조건이 아닙니다. 아래는 현재 확인된 **Codex 어댑터 설치** 경로입니다. 저장소 루트에서:
 
 ```sh
 npm --prefix plugins/doboo ci
@@ -19,6 +19,17 @@ codex plugin add doboo@doboo-local
 `dist/`는 설치 후 별도 의존성 다운로드 없이 실행하도록 포함한 번들입니다. 소스를 바꾸면 다시 빌드하고 `plugin add`로 로컬 설치본을 갱신합니다. portable `plugin.json`/`mcp.json`과 현재 Codex 호환 `.codex-plugin/plugin.json`/`.mcp.json`을 함께 제공합니다. 현재 호스트는 플러그인 루트를 작업 디렉터리로 사용하므로 MCP 인수는 `./dist/server.mjs`입니다. 이 호스트에서 `${CLAUDE_PLUGIN_ROOT}` 인수 치환은 되지 않았습니다.
 
 `status`로 연결을 확인하고, `import_character_file`에 사용자가 선택한 `.doboo.json`의 절대경로를 넘깁니다. `install_agent`와 `host_status`에는 **현재 작업의 프로젝트 절대경로**를 `projectDirectory`로 넘깁니다. 플러그인 캐시의 작업 디렉터리는 설치 대상이 아닙니다.
+
+다른 표준 MCP 클라이언트에서는 `node /absolute/path/to/plugins/doboo/dist/server.mjs`를 stdio 서버로 연결할 수 있습니다. `character_context({id, version})`는 받은 캐릭터를 현재 대화에서 사용할 수 있는 공통 컨텍스트로 반환합니다. 라이브러리 버전이 바뀌면 거부하며 다른 모델·호스트를 자동 선택하지 않습니다. ‘이 대화에서 쓰기’는 이 경로만 요청합니다. 실제 타사 AI 호스트의 실행·응답은 별도 미검증입니다.
+
+갤러리 화면은 호스트가 MCP Apps를 지원할 때 사용하는 선택적 내부 UI입니다. 화면 지원이 없어도 `search_characters` → `inspect_character` → `adopt_character` → `character_context` 도구 경로가 동작합니다. 플러그인은 이 서버·스킬을 해당 호스트에 설치하는 묶음이며, 독립 웹사이트를 요구하지 않습니다.
+
+Claude Code에서는 다음 stdio 등록을 사용하고 연결 상태를 확인합니다. 캐릭터의 실제 응답은 별도로 검증합니다.
+
+```sh
+claude mcp add --scope local --transport stdio doboo -- node /absolute/path/to/plugins/doboo/dist/server.mjs
+claude mcp get doboo
+```
 
 ## 공유 카탈로그
 
@@ -33,6 +44,8 @@ codex plugin add doboo@doboo-local
 DOBOO_CATALOG_CONFIG=/absolute/private/catalog.json node plugins/doboo/dist/catalog-main.mjs
 ```
 
+이 설정 파일 기반 카탈로그 서비스의 자격증명 검사는 POSIX `0600`을 사용합니다. Windows ACL 검증은 아직 없어 Windows에서 이 서비스 실행은 명시적으로 거절합니다. Windows MCP 클라이언트의 로컬 보관/수신과 HTTPS 카탈로그 연결은 별도 경로이며 이 제한과 구분합니다.
+
 MCP 프로세스에 `DOBOO_CATALOG_URL`과 `DOBOO_CATALOG_TOKEN`을 전달하면 공유 기능이 활성화됩니다. Codex 호환 `.mcp.json`의 `env_vars`가 부모 환경에서 해당 값들을 전달합니다. 표준 `mcp.json`에는 이 Codex 전용 필드를 넣지 않습니다. 클라이언트는 HTTPS 또는 로컬 검증용 loopback HTTP만 허용합니다. 현재 서버를 여러 사람에게 제공하려면 별도로 합의한 HTTPS 운영 환경과 계정 발급 경로가 필요합니다. 이 저장소는 운영 대상이나 공개 배포를 확정하지 않습니다.
 
 개인 보관함 위치는 `DOBOO_DATA_DIR`, 호스트가 제공한 `PLUGIN_DATA`, 로컬 기본 경로 순입니다. 명시적인 `DOBOO_WORKSPACE`는 프로젝트 경로 기본값으로 사용할 수 있습니다.
@@ -41,4 +54,4 @@ MCP 프로세스에 `DOBOO_CATALOG_URL`과 `DOBOO_CATALOG_TOKEN`을 전달하면
 
 `prepare_host_application`은 이미지, Dot 지침, Watch 파일을 준비하고 `install_agent`는 프로젝트 파일을 설치합니다. 모두 `hostConfirmed: false` 또는 `hostApplied: false`를 반환합니다. 실제 Pets 선택, Dot 응답/설정, 이름으로 호출한 서브에이전트, Watch 수신·선택은 각각 호스트에서 확인해야 합니다.
 
-UI의 ‘함께 쓰기’는 현재 채팅에 명시적 적용 요청을 보내고 스킬이 이 과정을 진행하게 합니다. 이 버튼 자체는 외부 호스트 활성화 증거가 아닙니다.
+UI의 ‘이 대화에서 쓰기’는 현재 대화만 대상으로 요청합니다. Pets·Dot·Codex 에이전트·Watch 어댑터는 사용자가 해당 대상을 요청했을 때 별도로 적용합니다. 버튼 자체는 호스트 활성화 증거가 아닙니다.

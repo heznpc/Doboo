@@ -135,7 +135,7 @@ test('authenticated HTTP publish → another fixture creator searches → downlo
   }
 });
 
-test('configured local service requires private credentials and binds only to loopback', async () => {
+test('configured local service requires private credentials and binds only to loopback', { skip: process.platform === 'win32' }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'doboo-service-config-test-'));
   const source = join(directory, 'catalog.config.json');
   const token = randomBytes(32).toString('hex');
@@ -151,5 +151,16 @@ test('configured local service requires private credentials and binds only to lo
     } finally { await new Promise<void>((resolve, reject) => running.server.close(error => error ? reject(error) : resolve())); }
     await chmod(source, 0o644);
     await assert.rejects(loadCatalogConfiguration(source), /0600/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('configured local service refuses Windows credential files until ACL validation exists', { skip: process.platform !== 'win32' }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'doboo-service-windows-config-test-'));
+  const source = join(directory, 'catalog.config.json');
+  const token = randomBytes(32).toString('hex');
+  try {
+    await writeFile(source, JSON.stringify({ directory: 'catalog-data', port: 0, credentials: { [token]: alice } }), { mode: 0o600 });
+    await assert.rejects(loadCatalogConfiguration(source), /Windows ACL validation/);
+    await assert.rejects(startConfiguredCatalog(source), /Windows ACL validation/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

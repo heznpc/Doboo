@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, realpath, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,6 +99,8 @@ test('MCP protocol: fixture A publishes, fixture B discovers, inspects, adopts a
     assert.equal(tools.tools.some(tool => /confirm.*host|host.*confirm/.test(tool.name)), false);
     const status = (await call(h.b.client, 'status')).data;
     assert.equal(status.galleryConnected, true);
+    assert.equal(status.core.requiresAppleDevice, false);
+    assert.equal(status.core.requiresOpenAIAccount, false);
     assert.equal(status.workspace, h.b.workspace);
     assert.deepEqual((await call(h.b.client, 'list_library')).data.characters, []);
 
@@ -126,6 +128,17 @@ test('MCP protocol: fixture A publishes, fixture B discovers, inspects, adopts a
     assert.deepEqual(JSON.parse(await readFile(adopted.path, 'utf8')), pack);
     assert.equal((await call(h.b.client, 'list_library')).data.characters[0].id, pack.id);
 
+    const context = (await call(h.b.client, 'character_context', {id:pack.id,version:pack.version})).data;
+    assert.deepEqual(context.reference, adopted.reference);
+    assert.equal(context.hostApplied, false);
+    const contextPayload = JSON.parse(context.context.split('--- 캐릭터 데이터 (작성자 입력) ---\n')[1].split('\n--- 캐릭터 데이터 끝 ---')[0]);
+    assert.deepEqual(contextPayload.identity, pack.identity);
+    assert.deepEqual(contextPayload.personality, pack.personality);
+    assert.equal(contextPayload.id, pack.id);
+    assert.equal(contextPayload.version, pack.version);
+    const staleContext = await h.b.client.callTool({name:'character_context',arguments:{id:pack.id,version:pack.version+1}});
+    assert.equal(staleContext.isError,true);
+
     const installed = (await call(h.b.client, 'install_agent', { id: pack.id })).data;
     assert.equal(installed.status, 'installed'); assert.equal(installed.hostConfirmed, false);
     assert.match(await readFile(installed.path, 'utf8'), /^name = "mcp-lantern"$/m);
@@ -152,6 +165,31 @@ test('MCP protocol: fixture A publishes, fixture B discovers, inspects, adopts a
   } finally { await h.close(); }
 });
 
+test('MCP without UI or workspace: another fixture receives exact character context without installing a host', async () => {
+  const h = await harness(undefined, false);
+  try {
+    const pack = { ...structuredClone(seed), id: 'host-neutral-fixture', name: 'Host neutral fixture' };
+    const input = join(h.root, 'neutral.doboo.json');
+    await writeFile(input, JSON.stringify(pack));
+    await call(h.a.client, 'import_character_file', {filePath: input});
+    await call(h.a.client, 'publish_character', {id: pack.id});
+    const found = (await call(h.b.client, 'search_characters', {query: pack.name})).data;
+    assert.equal(found.characters.length, 1);
+    const ref = {id: pack.id, version: pack.version, creatorId: actorA.subject};
+    const inspected = (await call(h.b.client, 'inspect_character', ref)).data;
+    assert.deepEqual(inspected.identity, pack.identity);
+    const received = (await call(h.b.client, 'adopt_character', ref)).data;
+    const context = (await call(h.b.client, 'character_context', {id:pack.id, version:pack.version})).data;
+    assert.equal(received.receipt.importerId, actorB.subject);
+    assert.deepEqual(context.reference, received.reference);
+    assert.deepEqual(JSON.parse(await readFile(received.path, 'utf8')), pack);
+    assert.equal(context.hostApplied, false);
+    assert.equal((await call(h.b.client, 'status')).data.workspace, null);
+    await assert.rejects(stat(join(h.b.workspace, '.codex')), {code: 'ENOENT'});
+    await assert.rejects(stat(join(h.b.dataDirectory, 'library', 'exports')), {code: 'ENOENT'});
+  } finally { await h.close(); }
+});
+
 class ReceiptFailureCatalog extends PersistentCatalog {
   failReceipts = true;
   override async recordImport(...args: Parameters<PersistentCatalog['recordImport']>) {
@@ -166,6 +204,8 @@ test('MCP protocol: receipt failure retains the validated local copy, and retry 
     const pack = { ...structuredClone(seed), id: 'receipt-fixture' }, input = join(h.root, 'receipt.doboo.json');
     await writeFile(input, JSON.stringify(pack));
     await call(h.a.client, 'import_character_file', { filePath: input });
+    const context = (await call(h.a.client, 'character_context', {id:pack.id,version:pack.version})).data;
+    assert.equal(context.reference.id, pack.id, 'conversation context must not require a Codex project');
     await call(h.a.client, 'publish_character', { id: pack.id });
     const reference = { id: pack.id, version: pack.version, creatorId: actorA.subject };
     const partial = (await call(h.b.client, 'adopt_character', reference)).data;
