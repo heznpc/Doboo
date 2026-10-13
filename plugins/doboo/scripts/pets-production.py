@@ -13,6 +13,44 @@ import shutil
 from PIL import Image
 
 
+
+def register_standard_frames(run):
+    """One shared fit, then one translation per row. Preserve jump displacement.
+
+    The bundled extractor centers each row's complete vertical envelope, which
+    otherwise gives idle and jumping different ground contact. Never fit poses
+    independently or synthesize artwork.
+    """
+    groups = {}
+    max_extent = max_width = 1
+    for folder in sorted((run / 'qa/frames').iterdir()):
+        if not folder.is_dir():
+            continue
+        files = sorted(folder.glob('*.png'))
+        frames = [Image.open(path).convert('RGBA') for path in files]
+        boxes = [frame.getbbox() for frame in frames]
+        if not boxes or any(box is None for box in boxes):
+            raise RuntimeError('Missing standard frame during registration')
+        ground = max(box[3] for box in boxes)
+        max_extent = max(max_extent, ground - min(box[1] for box in boxes))
+        max_width = max(max_width, max(box[2] - box[0] for box in boxes))
+        groups[folder.name] = (files, frames, ground)
+    scale = min(1.0, 192 / max_extent, 184 / max_width)
+    size = (round(192 * scale), round(208 * scale))
+    report = {'scale': scale, 'baseline': 200, 'rows': {}}
+    for name, (files, frames, ground) in groups.items():
+        fitted = [frame.resize(size, Image.Resampling.LANCZOS) for frame in frames]
+        dy = 200 - max(frame.getbbox()[3] for frame in fitted)
+        dx = (192 - size[0]) // 2
+        for path, frame in zip(files, fitted):
+            box = frame.getbbox()
+            if box[0]+dx < 0 or box[1]+dy < 0 or box[2]+dx > 192 or box[3]+dy > 208:
+                raise RuntimeError('Standard registration would clip artwork')
+            cell = Image.new('RGBA', (192, 208)); cell.alpha_composite(frame, (dx, dy)); cell.save(path)
+        report['rows'][name] = {'translation': [dx, dy], 'originalGround': ground}
+    (run / 'qa/standard-registration.json').write_text(json.dumps(report, indent=2))
+
+
 def execute(skill, run, stage):
     def invoke(name, *args):
         result = subprocess.run([sys.executable, str(skill / 'scripts' / name), *map(str, args)],
@@ -25,6 +63,7 @@ def execute(skill, run, stage):
     d = lambda path: str(run / path)
     if stage == 'standard-rows':
         invoke('extract_strip_frames.py', '--decoded-dir', d('decoded'), '--output-dir', d('qa/frames'), '--states', 'all', '--method', 'auto', '--chroma-key', key)
+        register_standard_frames(run)
         invoke('inspect_frames.py', '--frames-root', d('qa/frames'), '--json-out', d('qa/review.json'), '--require-components')
         invoke('compose_atlas.py', '--frames-root', d('qa/frames'), '--output', d('final/spritesheet.png'))
         invoke('make_contact_sheet.py', d('final/spritesheet.png'), '--output', d('qa/contact-sheet.png'))

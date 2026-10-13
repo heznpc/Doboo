@@ -110,3 +110,90 @@ test('repair invalidates old direction verdicts even when replacement artwork fa
   for(const name of ['direction-semantics.json','pet-quality.json'])await assert.rejects(()=>readFile(join(f.path,'qa',name)),/ENOENT/);
   const status=await p.status(f.id);assert.deepEqual(status.reviewedJobs,[]);assert.deepEqual(status.stages,[]);
 }));
+
+test('source art is decoded and snapshotted; edits retain original runs and reference roles',()=>harness(async(root)=>{
+  const skill=join(root,'fixture-skill');await mkdir(join(skill,'scripts'),{recursive:true});
+  await writeFile(join(skill,'scripts','prepare_pet_run.py'),`import sys,json,pathlib
+p=pathlib.Path(sys.argv[sys.argv.index('--output-dir')+1]); (p/'references').mkdir(); (p/'decoded').mkdir()
+(p/'prompt.md').write_text('fixture-only visual request')
+(p/'imagegen-jobs.json').write_text(json.dumps({'jobs':[{'id':'base','depends_on':[],'prompt_file':'prompt.md','input_images':[],'output_path':'decoded/base.png'},{'id':'look-row-10','depends_on':['base'],'prompt_file':'prompt.md','input_images':[{'path':str(i)+'.png','role':'derived continuity reference'} for i in range(4)],'output_path':'decoded/look10.png'}]}))
+`);
+  const p=createCreationPipeline(root,{...process.env,DOBOO_PETS_SKILL_DIR:skill});
+  const source=join(root,'user-drawing.wrong-extension'),bytes=emptyV2();await writeFile(source,bytes);
+  const first=await p.prepare(seed,'Preserve the round shape; change the clay texture.','clay',[source]);
+  assert.equal(first.sourceImages[0].mimeType,'image/png');assert.equal(first.sourceImages[0].sha256,hash(bytes));
+  await writeFile(source,'user edited their source file after import');
+  assert.deepEqual(await readFile(first.readyJobs[0].input_images[0].path),bytes);
+  const art=join(root,'fixture-art.png');await writeFile(art,bytes);
+  await p.supplyArtwork(first.runId,'base',art,'Fixture lifecycle test only, not actual visual approval.');
+  const edit=await p.revise(first.runId,seed,'Change only the mouth; keep the peach color and oval eyes.');
+  assert.equal(edit.parentRunId,first.runId);
+  assert.deepEqual(edit.sourceImages.map(s=>s.role),['identity-reference','edit-target']);
+  assert.match(edit.readyJobs[0].input_images.at(-1).role,/edit target/);
+  assert.deepEqual((await p.status(first.runId)).reviewedJobs,['base']);
+  assert.deepEqual(edit.reviewedJobs,[]);
+  const jobs=JSON.parse(await readFile(join(edit.runDirectory,'imagegen-jobs.json'),'utf8'));
+  assert.ok(jobs.jobs.every((job:any)=>job.input_images.length<=5));
+  assert.equal(jobs.jobs[1].input_images.at(-1).path,'references/source-board.png');
+  assert.ok((await readFile(join(edit.runDirectory,'references/source-board.png'))).length>0);
+  const five=await p.prepare(seed,'Five identity references.','clay',Array(5).fill(art));
+  await p.supplyArtwork(five.runId,'base',art,'Fixture base used only to exercise retained source-image capacity.');
+  const six=await p.revise(five.runId,seed,'Edit while retaining all five references.');
+  assert.equal(six.sourceImages.length,6);
+  assert.equal(six.sourceImages.filter(s=>s.role==='edit-target').length,1);
+  assert.ok(six.readyJobs.every((job:any)=>job.input_images.length<=5));
+  await assert.rejects(()=>p.revise(first.runId,{...seed,id:'different-character'},'change'),/preserve the character ID/);
+  const bad=join(root,'fake.png');await writeFile(bad,Buffer.concat([bytes.subarray(0,8),Buffer.from('broken')]));
+  await assert.rejects(()=>p.prepare(seed,'fixture','clay',[bad]),/corrupt/);
+  await writeFile(bad,'not image bytes');await assert.rejects(()=>p.prepare(seed,'fixture','clay',[bad]),/PNG, JPEG, or WebP/);
+}));
+
+test('nonvisual revision reuses verified art but requires real update and clears Watch receipts',()=>harness(async(root,p)=>{
+  const one=await fixture(root);await published(p,one);
+  const pack={...one.pack,version:2,description:'An edited description with the same appearance.'};
+  const next=await p.reviseDetails(one.id,pack);
+  assert.equal(next.parentRunId,one.id);assert.equal(next.phase,'validated');assert.equal(next.pets.step,'inspect');assert.equal(next.watch,null);
+  assert.deepEqual(await readFile(join(next.runDirectory,'final','spritesheet-extended.png')),one.atlas);
+  await accept(p,next.runId,{pets:[],active_pet_id:'previous-pet'});
+  const action:any=await p.nextPetAction(next.runId);assert.equal(action.tool,'update_pet');assert.equal(action.arguments.pet_id,'fixture-stable-pet');assert.equal(action.arguments.updates.description,pack.description);assert.equal(action.arguments.updates.upload_session_id,undefined);
+  await p.recordPetResponse(next.runId,action.id,{pet:{id:'fixture-stable-pet',is_custom:true,name:pack.name,description:pack.description}});
+  await accept(p,next.runId,{pets:[{id:'fixture-stable-pet',is_custom:true,name:pack.name,description:pack.description}],active_pet_id:'previous-pet'});
+  assert.equal((await p.status(next.runId)).phase,'published');
+  await assert.rejects(()=>p.reviseDetails(one.id,{...pack,appearance:{...pack.appearance,tint:'#111111'}}),/Appearance changed/);
+  await assert.rejects(()=>p.reviseDetails(one.id,one.pack),/higher version/);
+}));
+
+test('motion revision retains unchanged source art but cannot inherit publication approval',()=>harness(async(root,p)=>{
+  const one=await fixture(root);await published(p,one);
+  for(const entry of ['decoded','references','prompts','qa'])await mkdir(join(one.path,entry));
+  await writeFile(join(one.path,'decoded','idle.png'),one.atlas);
+  await writeFile(join(one.path,'prompts','waving.md'),'Fixture waving request.');
+  await writeFile(join(one.path,'pet_request.json'),'{}');
+  await writeFile(join(one.path,'qa','pet-quality.json'),'old approval');
+  await writeFile(join(one.path,'imagegen-jobs.json'),JSON.stringify({jobs:[{id:'waving',depends_on:['base'],prompt_file:'prompts/waving.md',input_images:[],output_path:'decoded/waving.png'}]}));
+  const path=join(one.path,'run.json'),run=JSON.parse(await readFile(path,'utf8'));
+  run.reviews={base:'Original base',idle:'Original idle',waving:'Original waving'};run.artifacts={idle:hash(one.atlas),waving:'old'};
+  await writeFile(path,JSON.stringify(run));
+  await assert.rejects(()=>p.reviseMotion(one.id,1,'waving','Raise both arms.'),/higher version/);
+  await assert.rejects(()=>p.reviseMotion(one.id,2,'look-row-9','change'),/full customization/);
+  const next=await p.reviseMotion(one.id,2,'waving','Raise both arms.');
+  assert.equal(next.parentRunId,one.id);assert.equal(next.phase,'artwork');assert.equal(next.pets.step,'inspect');
+  assert.deepEqual(next.reviewedJobs,['base','idle']);assert.deepEqual(next.stages,[]);
+  assert.equal(next.readyJobs[0].id,'waving');assert.match(next.readyJobs[0].prompt,/Raise both arms/);
+  assert.deepEqual(await readFile(join(next.runDirectory,'decoded','idle.png')),one.atlas);
+  await assert.rejects(()=>readFile(join(next.runDirectory,'qa','pet-quality.json')),/ENOENT/);
+  await assert.rejects(()=>p.nextPetAction(next.runId),/quality gates/);
+  assert.equal((await p.status(one.id)).phase,'published');
+}));
+
+test('metadata-only publication rejects an old appearance after a newer visual revision',()=>harness(async(root,p)=>{
+  const one=await fixture(root);await published(p,one);
+  const next=await p.reviseDetails(one.id,{...one.pack,version:3,description:'Requested metadata change.'});
+  // Model a newer visual publication while this details revision was pending.
+  const path=join(root,'creation','bindings',one.pack.id+'.json');
+  const binding=JSON.parse(await readFile(path,'utf8'));binding.version=2;binding.atlasSHA256='different-current-artwork';
+  await writeFile(path,JSON.stringify(binding));
+  await accept(p,next.runId,{pets:[],active_pet_id:'previous-pet'});
+  await assert.rejects(()=>p.nextPetAction(next.runId),/current Pet artwork differs/);
+  assert.equal((await p.status(next.runId)).pets.step,'publish');
+}));
