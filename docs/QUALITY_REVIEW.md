@@ -21,3 +21,7 @@
 Keep local account, device and diagnostic records outside the public repository.
 Fixture exchanges, compilation and file generation do not prove another user's
 host behavior or physical-device delivery.
+
+## Optional local transfer diagnostics
+
+기기 진단 빌드는 DEBUG에서 `--character-transfer-diagnostics`를 명시했을 때만 CharacterTransferDiagnostics.json을 기록합니다. 추가 `--send-character <id>`는 실제 앱의 기존 send 함수를 호출합니다. 정상 실행·Release에서는 진단 파일을 쓰지 않으며 캐릭터 내용은 진단에 포함하지 않습니다. queue·송신 callback·수신 확인을 합치지 않습니다.

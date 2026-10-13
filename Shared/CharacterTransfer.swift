@@ -19,6 +19,7 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
   }
 
   func send(_ pack: CharacterPack) {
+    defer { recordDiagnostic("send") }
     guard let session, session.activationState == .activated else {
       library?.transferStatus = String(localized: "transfer.notReady")
       return
@@ -50,6 +51,15 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
       self.pendingID = UserDefaults.standard.string(forKey: "doboo.transfer.pending")
       if let errorMessage { self.library?.transferStatus = errorMessage }
       else if self.pendingID != nil { self.library?.transferStatus = String(localized: "transfer.awaiting") }
+      self.recordDiagnostic("activation")
+      #if DEBUG && os(iOS)
+      let arguments = ProcessInfo.processInfo.arguments
+      if arguments.contains("--character-transfer-diagnostics"), activationState == .activated,
+        let index = arguments.firstIndex(of: "--send-character"), index + 1 < arguments.count,
+        let pack = self.library?.packs.first(where: { $0.id == arguments[index + 1] }) {
+        self.send(pack)
+      }
+      #endif
     }
   }
 
@@ -65,9 +75,11 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
         guard let library = self.library else { return }
         let pack = try library.importData(result.get())
         self.session?.transferUserInfo(["dobooReceipt": receiptID, "result": "imported", "characterID": pack.id])
+        self.recordDiagnostic("imported")
       } catch {
         self.library?.errorMessage = error.localizedDescription
         self.session?.transferUserInfo(["dobooReceipt": receiptID, "result": "rejected", "reason": error.localizedDescription])
+        self.recordDiagnostic("rejected")
       }
     }
   }
@@ -89,6 +101,7 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
         UserDefaults.standard.removeObject(forKey: "doboo.transfer.pending")
       }
       else { self.library?.transferStatus = String(localized: "transfer.awaiting") }
+      self.recordDiagnostic("transport-finished")
     }
   }
 
@@ -105,11 +118,37 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
       }
       self.pendingID = nil
       UserDefaults.standard.removeObject(forKey: "doboo.transfer.pending")
+      self.recordDiagnostic(result == "imported" ? "receipt-imported" : "receipt-rejected")
     }
   }
 
   #if os(iOS)
+  nonisolated func sessionWatchStateDidChange(_ session: WCSession) {
+    Task { @MainActor [weak self] in self?.recordDiagnostic("watch-state-changed") }
+  }
   nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
   nonisolated func sessionDidDeactivate(_ session: WCSession) { session.activate() }
   #endif
+
+  /// Opt-in local evidence for device testing; never emits character contents.
+  /// Release builds and normal launches do not write diagnostic files.
+  private func recordDiagnostic(_ event: String) {
+    #if DEBUG
+    guard ProcessInfo.processInfo.arguments.contains("--character-transfer-diagnostics"),
+      let directory = try? FileManager.default.url(for: .applicationSupportDirectory,
+        in: .userDomainMask, appropriateFor: nil, create: true) else { return }
+    var values: [String: Any] = ["event": event, "status": library?.transferStatus ?? "",
+      "activationState": session?.activationState.rawValue ?? -1,
+      "reachable": session?.isReachable ?? false,
+      "outstandingFileTransfers": session?.outstandingFileTransfers.count ?? 0,
+      "awaitingReceipt": pendingID != nil]
+    #if os(iOS)
+    values["paired"] = session?.isPaired ?? false
+    values["watchAppInstalled"] = session?.isWatchAppInstalled ?? false
+    #endif
+    if let data = try? JSONSerialization.data(withJSONObject: values, options: [.prettyPrinted, .sortedKeys]) {
+      try? data.write(to: directory.appendingPathComponent("CharacterTransferDiagnostics.json"), options: .atomic)
+    }
+    #endif
+  }
 }

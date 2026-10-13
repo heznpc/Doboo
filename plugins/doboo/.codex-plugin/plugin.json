@@ -1,0 +1,7 @@
+{
+  "name":"doboo", "version":"0.2.0",
+  "description":"Find and exchange reusable characters across working hosts and Apple Watch.",
+  "author":{"name":"Heznpc"},
+  "mcpServers":"./.mcp.json",
+  "interface":{"displayName":"Doboo","shortDescription":"함께할 캐릭터를 찾고 주고받으세요","developerName":"Heznpc","category":"Productivity"}
+}

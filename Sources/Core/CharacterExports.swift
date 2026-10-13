@@ -7,7 +7,7 @@ enum CharacterExports {
 
   private struct Payload: Encodable {
     let id: String
-    let version: Int
+    let version: Int64
     let name: String
     let description: String
     let identity: CharacterPack.Identity
