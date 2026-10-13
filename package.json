@@ -1,0 +1,13 @@
+{
+  "name": "doboo-character-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests-js/*.test.mjs",
+    "character": "node scripts/character-cli.mjs"
+  }
+}

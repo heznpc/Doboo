@@ -1,66 +1,61 @@
-# Doboo
+# Doboo (두부)
 
-Doboo는 Apple Watch에서 누르고 끌며 교감하는 오프라인 캐릭터입니다.
-SwiftUI 도형으로 몸·눈·입을 그려 손가락 위치에 따라 눌리고 표정이 바뀝니다.
-계정, 서버, 건강 데이터, 장기 육성 시스템은 사용하지 않습니다.
+Pets·Dots·서브에이전트에서 함께하는 캐릭터를 만들고 주고받아,
+Apple Watch의 터치와 햅틱 경험으로 이어주는 앱입니다.
+기본 캐릭터 두부 외에도 각자의 외형·설정·말투·성격을 가진 캐릭터를 담습니다.
 
-## 현재 구현
+## 이번 통합
 
-- 터치·드래그 반응과 선택 가능한 햅틱
-- 첫 사용 안내, 설정, 다시 볼 수 있는 도움말과 개인정보 안내
-- 기기에 저장되는 햅틱·모션 설정
-- VoiceOver 놀이 동작과 한국어·영어 안내
-- 비활성 화면·Always On·시스템 동작 줄이기 설정에서 지속 애니메이션 중지
-- 앱 아이콘, 개인정보 매니페스트, 소스·리소스 일관성 CI
+- **앱 안의 캐릭터 갤러리:** 만들기, 새 버전으로 편집, 파일 가져오기와 공유.
+- **하나의 캐릭터 파일:** `.doboo.json`에 ID·버전·외형·설정·말투·성격을 보존합니다.
+- **iPhone → Watch:** 갤러리에서 캐릭터를 선택하고 WatchConnectivity로 보냅니다.
+  전송 대기와 Watch의 검증·저장 후 수신 확인은 구분합니다.
+- **Watch 경험 유지:** 기본 두부의 연속 눌림·표정·햅틱·접근성·동작 줄이기를 유지합니다.
+  Pets PNG는 별도 스프라이트 렌더러로 재생합니다.
+- **같은 캐릭터의 다른 표현:** Dots 지침, Codex 서브에이전트 TOML,
+  실제 포함된 Pets PNG를 내보냅니다. 기억·작업 상태·권한이 자동 동기화되지는 않습니다.
 
-**현재 상태는 실행 미검증입니다.** 2026-10-13까지의 보강은 코드 검토만으로 진행했습니다.
-앱·시뮬레이터·테스트를 실행하지 않았고 빌드·서명·스토어 제출을 확인하지 않았습니다.
-정적 검사가 통과해도 배터리, 실제 햅틱, 화면 배치, 접근성 동작 및 배포 성공을 보증하지 않습니다.
-[품질 검토와 남은 확인 항목](docs/QUALITY_REVIEW.md)을 확인해 주세요.
+갤러리는 Doboo 앱 안에 있습니다. 파일은 OS 공유 시트로 상대에게 보내고,
+받은 사람은 자신의 앱으로 가져옵니다. 공개 게시판·계정·웹 서비스 운영은 이 구현에 포함하지 않습니다.
+기본 도형 캐릭터에 Pets 스프라이트가 있는 것처럼 표시하지 않습니다.
 
-## 개발 환경
+실제 확인 결과와 남은 범위는 [검증 기록](docs/QUALITY_REVIEW.md)에 기록합니다.
+Watch 기기 간 전송과 실제 ChatGPT 설정 적용은 개별 검증 대상입니다.
 
-- Xcode 26 이상, watchOS 11 이상
-- XcodeGen (`project.yml`이 프로젝트 설정의 원본)
-- 코어 모델 테스트용 Swift 6, macOS 15 이상
-- Python 3: 앱을 실행하지 않는 저장소 일관성 검사
+## 개발
+
+- iOS 18+, watchOS 11+, Swift 6, Xcode 26+, XcodeGen
+- Node.js 22+: 캐릭터 파일 변환·내보내기용 개발 CLI (앱 실행에는 불필요)
+- Python 3: 프로젝트/리소스 일관성 및 TOML 검증
 
 ```sh
-# 소스·리소스·설정 변경 후 프로젝트 참조를 갱신합니다. 앱을 빌드하지 않습니다.
 xcodegen generate
-
-# 코드와 파일 구조만 검사합니다. 앱·테스트를 실행하지 않습니다.
-python3 scripts/check_repository.py
-```
-
-앱 실행이 허용된 별도의 검증 단계에서 사용할 명령:
-
-```sh
 swift test
-xcodebuild -project Doboo.xcodeproj -scheme Doboo \
-  -sdk watchsimulator -destination 'generic/platform=watchOS Simulator' \
-  CODE_SIGNING_ALLOWED=NO build
+npm test
+python3 scripts/check_repository.py
+node scripts/check_interchange.mjs
+
+# 스프라이트 왕복까지 확인할 경우, 사용 권한이 있는 PNG를 지정합니다.
+node scripts/check_interchange.mjs /path/to/pet.png
+
+# 캐릭터 개발 도구
+npm run character -- validate Characters/doboo.doboo.json
+npm run character -- export Characters/doboo.doboo.json work/doboo-export
 ```
 
-실기기 서명과 App Store 배포는 별도 검증이 필요합니다. 프로젝트에는 서버 비밀키가 없습니다.
-설정은 해당 앱의 UserDefaults에만 저장하고 터치 좌표는 메모리에서만 처리합니다.
-[개인정보 안내](docs/PRIVACY.md)와 실제 데이터 흐름을 배포 시점에 다시 대조해야 합니다.
+Xcode에서 `DobooLibrary` scheme은 iPhone 앱과 포함된 Watch 앱을,
+`Doboo` scheme은 Watch 앱을 빌드합니다. 필요한 iOS/watchOS 플랫폼을 설치해야 합니다.
+서명·archive·스토어 제출은 별도 검증이 필요합니다.
 
-## ChatGPT 호환성
+## 설계와 근거
 
-Pets 외형 교환은 스프라이트 변환·재생 기능을 별도로 구현하면 가능하지만 현재 연결되어 있지 않습니다.
-Mini는 데스크톱 채팅 컨트롤이며, dots를 watchOS에 직접 넣는 공개 SDK는 확인되지 않았습니다.
-[공식 문서에 근거한 호환성 검토](docs/CHATGPT_COMPATIBILITY.md)에 범위와 규격 차이를 정리했습니다.
+- [통합 방향·기존 커밋 검토](docs/INTEGRATION.md)
+- [캐릭터 파일 규격](docs/CHARACTER_FORMAT.md)
+- [Pets·Dots·서브에이전트 연결 범위](docs/CHATGPT_COMPATIBILITY.md)
+- [Doboo 이름 검토](docs/NAME_REVIEW.md)
+- [개인정보 안내](docs/PRIVACY.md)
 
-## 제품 경계와 에셋
-
-Doboo와 `squeeez!`는 별도 제품·저장소입니다. 명시적인 요청 없이 코드, 에셋, 제품 범위,
-Git 이력을 공유하지 않습니다. 캐릭터와 아이콘은 이 저장소의 도형으로 작성했습니다.
-
-아이콘 원본은 `Artwork/AppIcon.svg`입니다. librsvg가 설치된 환경에서 갱신할 수 있습니다.
-
-```sh
-rsvg-convert -w 1024 -h 1024 -o Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png Artwork/AppIcon.svg
-```
-
-`Screenshots/doboo-watch.png`는 초기 프로토타입의 기록이며 현재 버전 검증 자료가 아닙니다.
+Doboo와 `squeeez!`는 별도 제품·저장소입니다. 코드·에셋·Git 이력을 공유하지 않습니다.
+저장소에 배포하는 기본 캐릭터와 아이콘은 자체 도형입니다.
+검증에 사용한 외부 Pets 이미지는 저장소에 포함하지 않습니다.
+`Screenshots/doboo-watch.png`는 초기 프로토타입 기록이며 현재 버전의 실행 증거가 아닙니다.

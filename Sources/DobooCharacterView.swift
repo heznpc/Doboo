@@ -5,6 +5,7 @@ struct DobooCharacterView: View {
   let recoil: CGFloat
   let phase: TimeInterval
   let motionEnabled: Bool
+  var tint: Color = Color(red: 1.0, green: 0.55, blue: 0.38)
 
   private var breath: CGFloat {
     motionEnabled ? CGFloat(sin(phase * 2.2)) : 0
@@ -41,7 +42,7 @@ struct DobooCharacterView: View {
         .fill(
           RadialGradient(
             colors: [
-              Color(red: 1.0, green: 0.78, blue: 0.45), Color(red: 1.0, green: 0.42, blue: 0.31),
+              tint.opacity(0.75), tint,
             ],
             center: UnitPoint(x: 0.35, y: 0.27),
             startRadius: 2,
@@ -57,7 +58,7 @@ struct DobooCharacterView: View {
           )
           .stroke(Color.white.opacity(0.18), lineWidth: 1.5)
         }
-        .shadow(color: Color(red: 1.0, green: 0.35, blue: 0.25).opacity(0.35), radius: 12, y: 7)
+        .shadow(color: tint.opacity(0.35), radius: 12, y: 7)
 
         face(side: side, touch: touch, pressure: pressure)
       }

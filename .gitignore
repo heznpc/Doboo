@@ -5,3 +5,5 @@ xcuserdata/
 *.xcuserstate
 *.xccheckout
 *.xcscmblueprint
+work/
+node_modules/

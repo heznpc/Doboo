@@ -4,35 +4,89 @@ options:
   developmentLanguage: en
   deploymentTarget:
     watchOS: "11.0"
+    iOS: "18.0"
   xcodeVersion: "26.0"
 settings:
   base:
     SWIFT_VERSION: "6.0"
     DEVELOPMENT_TEAM: XS7HJJN7GC
     CODE_SIGN_STYLE: Automatic
-    CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.1.0
+    CURRENT_PROJECT_VERSION: 2
+    MARKETING_VERSION: 0.2.0
 targets:
   Doboo:
     type: application
     platform: watchOS
     sources:
       - Sources
+      - Shared
       - path: Resources
+      - path: Characters
+        type: folder
+        buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.doboo
+        PRODUCT_BUNDLE_IDENTIFIER: app.doboo.watchkitapp
         PRODUCT_NAME: Doboo
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Doboo
         INFOPLIST_KEY_WKApplication: YES
-        INFOPLIST_KEY_WKWatchOnly: YES
+        INFOPLIST_KEY_WKWatchOnly: NO
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: app.doboo
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
     scheme:
       testTargets:
         - DobooTests
+  DobooLibrary:
+    type: application
+    platform: iOS
+    sources:
+      - Companion
+      - Shared
+      - Sources/Core
+      - Sources/DobooCharacterView.swift
+      - Sources/SoftBlobShape.swift
+      - path: Resources
+        excludes:
+          - Assets.xcassets
+      - path: Characters
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: Doboo
+        embed: true
+    info:
+      path: Companion/Info.plist
+      properties:
+        CFBundleDisplayName: Doboo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Doboo Character
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.json
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.doboo
+        PRODUCT_NAME: DobooLibrary
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
+    scheme: {}
   DobooTests:
     type: bundle.unit-test
     platform: watchOS

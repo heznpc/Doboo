@@ -1,60 +1,51 @@
-# Doboo 코드 품질 검토
+# 통합 검증 기록
 
-최종 정적 검토: 2026-10-13 · 기준 커밋: `bdec2022c89413bf44d09411fb32388bdfd22a40`
+2026-10-13 · `feat/character-gallery-integration`
 
-## 판단
+## 구현 범위
 
-기존 구현은 상용 서비스가 아니라 Apple Watch 촉감 캐릭터 프로토타입이었습니다.
-터치·표정·햅틱의 핵심은 있었지만, 첫 사용 안내·사용자 설정·취소 처리·접근성 조작·
-애니메이션 수명 관리·배포 리소스가 부족했습니다. 서버가 없는 오프라인 제품이므로
-인증·결제·백엔드를 추가하는 것보다 현재 기능을 안정적으로 사용할 수 있게 만드는 데 집중했습니다.
+기존 `2e9501a`의 Watch 촉감·접근성·수명 관리에 캐릭터 파일과 렌더러 선택을
+연결했습니다. iPhone 앱 안에서 생성·편집·공유·가져오기를 제공하고,
+같은 캐릭터를 Watch 파일 전송 및 Pets/Dots/서브에이전트 출력에 사용합니다.
+별도 웹 갤러리는 제품에 포함하지 않습니다.
 
-현재 변경은 이 제품 범위의 사용 흐름과 방어 코드를 보강한 상태입니다.
-**출시 가능 판정은 미검증**입니다. 코드 검토로 실제 오류 로그 전체나 모든 실행 경로의 무결성을
-증명할 수 없으며, 확인하지 않은 오류를 고쳤다고 간주하지 않습니다.
+## 실행 확인
 
-## 코드에서 확인한 문제와 수정
+| 확인 | 결과와 범위 |
+| --- | --- |
+| Swift 핵심 테스트 | 24개 통과. 입력·취소·도형, 스키마·버전 충돌, 저장 실패시 기존 데이터 유지, 재시작 선택 보존, sprite 방향, 실제 host exporter 포함 |
+| JS 개발 도구 | 5개 통과. 포맷 왕복, 잘못된 입력 거부, PNG checksum/압축 데이터, legacy 변환, TOML escaping |
+| 파일 교환 | 네이티브 두 독립 저장소 → 재시작 → CLI 왕복. 기본 캐릭터 및 실제 Pets PNG 포함 파일에서 모든 필드·이미지 바이트 일치 |
+| Dots/서브에이전트 파일 | Swift와 JS가 생성한 지침의 ID·말투 확인, Python tomllib로 양쪽 TOML 파싱. name/description/developer_instructions만 생성 |
+| 기존 Troupe 파일 | 실제 steady-character, pico, pragmatic-builder 및 mori 변환. 원 ID·원문·semver는 변환 기록에 보존하고 새 정수 버전·제작자를 명시 |
+| 앱 실제 실행 | 공용 iPad 시뮬레이터에서 생성 → v2 편집 → 공유 시트, 파일 선택기를 통한 Pets 포함 JSON 가져오기 → 선택 → 재시작 보존 확인. 앱이 만든 JSON/PNG의 원본 일치와 Dots/TOML 내용도 확인 |
+| iOS 코드 빌드 | 동일 production 소스·설정으로 빌드 성공. 아래 검증 구성 차이 있음 |
+| Watch 코드 빌드 | watchOS device SDK로 compile/link 성공. 아이콘 제외 조건이며 전체 배포 빌드 아님 |
+| 정적 정합성 | 21개 Swift 파일, 한국어/영어 97개 키, 리소스·프로젝트 참조·diff 검사 통과 |
 
-| 문제 | 코드 근거와 영향 | 반영한 수정 |
-| --- | --- | --- |
-| 제스처 취소 시 눌림 잔류 | 기존 `ContentView`는 `onEnded`만 사용하여 취소·화면 전환을 명시적으로 정리하지 않음 | `GestureState` 초기화, 화면 비활성·sheet·뷰 이탈 시 무음 취소 |
-| 애니메이션 수명 정책 누락 | 30fps Timeline에 화면 상태·Always On·Reduce Motion 조건이 없음 | 비활성·어두운 화면·설정 화면·사용자 모션 해제·시스템 동작 줄이기에서 일시중지 |
-| 지연 반동 Task 관리 부재 | 기존 release Task의 생존 기간과 후속 입력 간 관계가 정의되지 않음 | 반동 Task 제거, interaction 변경에 따른 spring 복귀로 단순화 |
-| 잘못된 좌표·크기 수용 | `press`가 크기 검사 전에 pressed를 설정하고 비유한 좌표를 검증하지 않음 | 유한 좌표/양수 유한 크기 검증, 입력 거부 시 취소, 나누기 전 범위 제한 |
-| 비정상 도형 계산 | shape의 비유한 입력과 큰 좌표에서의 덧셈이 방어되지 않음 | `BlobGeometry`로 계산 분리, 유효 영역·입력 범위 검사, overflow를 피하는 midpoint |
-| 깜빡임 중 눈 크기 증가 | blink 값이 1을 초과하여 원래 눈 크기를 넘어갈 수 있음 | 0.12…1로 제한 |
-| 입 곡선 좌표 계산 | smile의 제어점에 절대 maxY를 곱해 원점이 0이 아닌 rect에서 위치가 달라짐 | rect 원점과 높이를 분리한 상대 좌표 사용 |
-| VoiceOver 놀이 부재 | 캐릭터 설명만 있으며 동작 action이 없음 | 기본·명명된 눌렀다 놓기 action, 취소 가능한 단일 Task와 세대 ID로 새 입력 보호 |
-| 사용 안내·선호 설정 부재 | 햅틱을 끄거나 사용 방법을 다시 확인할 화면이 없음 | 첫 안내, 설정, 도움말, 개인정보 화면, 기기 내 설정 저장 |
-| 배포 리소스 누락 | AppIcon 설정은 있으나 실제 asset catalog가 없음 | 독자 벡터 원본과 1024 RGB 아이콘, 리소스 build phase |
-| 저장 설정의 개인정보 선언 필요 | 이번에 UserDefaults 설정 저장을 추가함 | 자체 설정 저장 사유를 포함한 privacy manifest 및 안내 |
-| 번역·프로젝트 참조 검증 부재 | 안내 문자열이 하드코딩되어 있고 파일 추가 시 참조 누락 가능 | 한국어/영어 31개 키, XcodeGen 프로젝트 갱신, 정적 일관성 CI |
+## 시뮬레이터 환경과 한계
 
-## 수행한 확인
+이 Mac에는 iOS 26.5 시뮬레이터가 있지만 watchOS 런타임이 없습니다.
+Watch SDK가 설치돼 있어도 Xcode의 포함 Watch 앱 preflight 및 asset compiler가
+해당 런타임을 요구해 production 통합 scheme의 전체 빌드는 진행할 수 없었습니다.
 
-- 전체 앱 소스·코어 모델·테스트 소스·패키지·프로젝트 설정을 정적으로 검토했습니다.
-- 새 SwiftUI API의 watchOS 선언을 로컬 SDK 인터페이스에서 확인했습니다.
-- XcodeGen으로 프로젝트 파일만 재생성했습니다. 앱을 컴파일하거나 실행하지 않았습니다.
-- `python3 scripts/check_repository.py`: Swift 파일 9개 참조, 번역 31개 키,
-  리소스 membership, 개인정보 선언, PNG 메타데이터, scheme XML 구조 확인.
-- `plutil -lint`: Xcode 프로젝트, privacy manifest, 두 언어 strings 형식 확인.
-- `git diff --check`: 변경 파일의 공백 오류 확인.
-- 기존 모델 테스트 4개를 보존하고 입력·취소·도형 경계의 회귀 테스트 10개를 추가했습니다.
-  **총 14개 테스트 소스는 실행하지 않았습니다.**
+iOS 실행 검증에는 `work/ios-verification`의 임시 XcodeGen 프로젝트를 썼습니다.
+production iOS 소스·리소스·bundle ID·설정은 같고, 포함 Watch target 의존성만 제외했습니다.
+제품 프로젝트에 별도의 Preview 앱이나 검증 전용 target을 추가하지 않았습니다.
+Watch 코드 컴파일은 `EXCLUDED_SOURCE_FILE_NAMES=Assets.xcassets`와
+빈 `ASSETCATALOG_COMPILER_APPICON_NAME` 조건을 사용했습니다.
+이 결과를 통합 패키징·아이콘 검증·실기기 실행 성공으로 간주하지 않습니다.
 
-정적 CI는 파일 구조만 검사합니다. Swift 타입 검사, watchOS 컴파일, UI·성능 테스트를 대신하지 않습니다.
+실제 화면을 확인하면서 iOS 지역화 리소스가 번들에서 빠져 raw key가 보이는 문제를
+발견했고, 리소스 그룹 구성을 수정했습니다. iPhone 아이콘은 기존 자체 PNG를 재사용했습니다. 가져온 스프라이트가 왼쪽에 치우치는 문제도 실제 화면에서 확인해 중앙 정렬을 고쳤습니다.
+Watch bundle ID는 iOS companion의 접두어를 따르도록 `app.doboo.watchkitapp`,
+iOS는 `app.doboo`로 맞췄습니다. 기존 Watch 프로토타입 설치의 설정 마이그레이션은 미검증입니다.
 
-## 남은 출시 확인
+## 남은 검증
 
-사용자 지시에 따라 앱·시뮬레이터·디버거·빌드·테스트 실행은 하지 않았습니다.
-다음은 실행 허용 후 별도로 확인해야 하는 항목입니다.
+- 페어링된 iPhone↔Watch 파일 수신, 실제 렌더링·햅틱·Always On·배터리·큰 글자.
+- Watch 런타임이 설치된 환경에서 production 통합 scheme, 서명·archive·배포.
+- 내보낸 Pets PNG의 실제 ChatGPT 등록, Dots 지침 저장, Codex 서브에이전트 등록·호출.
+- OS 공유 시트에서 실제 다른 사람에게 보내고 그 사람의 기기에서 가져오는 과정.
 
-- watchOS 빌드, 14개 코어 테스트, 실기기 서명·archive·스토어 검증
-- 작은 화면·큰 글자에서 안내/설정 화면, VoiceOver 초점과 놀이 동작
-- 정상 release와 gesture cancellation의 callback 순서, 빠른 반복 터치, 화면 전환 중 취소
-- Always On·백그라운드·Reduce Motion·모션 토글에서 동작 및 전력 사용량
-- 실제 햅틱 느낌과 사용자 설정 유지, 앱 아이콘 외관
-- 스토어 지원/개인정보 URL, 배포 메타데이터와 실제 출시 화면 자료
-
-새 공개 페이지 발행과 스토어 배포는 이번 변경에 포함하지 않습니다.
-ChatGPT 연동은 [별도 호환성 검토](CHATGPT_COMPATIBILITY.md)에 기술했으며 구현된 기능이 아닙니다.
+파일 생성·복사·공유 UI와 실제 외부 호스트 설치/상대 기기 수신은 별개의 검증입니다.

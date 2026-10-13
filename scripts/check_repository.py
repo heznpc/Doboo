@@ -31,7 +31,8 @@ def main():
     # Every source must be present in a source build phase, not just a navigator group.
     phases = re.findall(r'isa = PBXSourcesBuildPhase;(.*?)runOnlyForDeploymentPostprocessing', project, re.S)
     memberships = "\n".join(phases)
-    source_files = list((ROOT / "Sources").rglob("*.swift")) + list((ROOT / "Tests").rglob("*.swift"))
+    source_files = [path for directory in ("Sources", "Shared", "Companion", "Tests")
+                    for path in (ROOT / directory).rglob("*.swift")]
     require(len({path.name for path in source_files}) == len(source_files), "Duplicate Swift basenames require a path-aware project check")
     for path in source_files:
         require(f"/* {path.name} in Sources */" in memberships,
@@ -40,7 +41,8 @@ def main():
     for name in ("Assets.xcassets", "Localizable.strings", "PrivacyInfo.xcprivacy"):
         require(f"/* {name} in Resources */" in project, f"Missing resource build membership: {name}")
     require("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;" in project, "App icon build setting missing")
-    require("INFOPLIST_KEY_WKWatchOnly = YES;" in project, "Standalone Watch setting missing")
+    require("PRODUCT_BUNDLE_IDENTIFIER = app.doboo;" in project and "app.doboo.watchkitapp" in project, "Companion and Watch bundle identifiers missing")
+    require("INFOPLIST_KEY_WKCompanionAppBundleIdentifier" in project, "Watch companion association missing")
 
     translations = {
         language: localization(ROOT / f"Resources/{language}.lproj/Localizable.strings")
@@ -49,8 +51,10 @@ def main():
     require(translations["en"].keys() == translations["ko"].keys(), "English/Korean localization keys differ")
     # Product-facing keys have a stable dotted namespace; defaults keys use doboo's prefix.
     used_keys = set()
-    for path in (ROOT / "Sources").rglob("*.swift"):
-        used_keys.update(re.findall(r'"((?:app|about|welcome|accessibility|onboarding|settings|help|privacy|common|character)\.[A-Za-z0-9_.]+)"', path.read_text()))
+    for path in source_files:
+        source = re.sub(r'.accessibilityIdentifier\("[^"\n]*"\)', "", path.read_text())
+        used_keys.update(re.findall(r'"((?:app|about|welcome|accessibility|onboarding|settings|help|privacy|common|character|library|transfer|editor|export|gallery)\.[A-Za-z0-9_.]+)"', source))
+    used_keys.discard("library.json")
     missing = used_keys - translations["en"].keys()
     require(not missing, f"Missing translations: {sorted(missing)}")
 
