@@ -8,6 +8,11 @@ interface CatalogConfiguration {
   directory: string; port: number; credentials: Record<string, CatalogPrincipal>;
 }
 export async function loadCatalogConfiguration(path: string): Promise<CatalogConfiguration> {
+  // POSIX permission bits do not establish private ownership on Windows.
+  // Refuse credential files until an equivalent Windows ACL check exists.
+  if (process.platform === 'win32') {
+    throw new Error('Catalog service configuration on Windows is unavailable until Windows ACL validation is implemented.');
+  }
   const source = resolve(path);
   const metadata = await stat(source);
   if (!metadata.isFile() || metadata.size > 64 * 1024 || (metadata.mode & 0o777) !== 0o600) {

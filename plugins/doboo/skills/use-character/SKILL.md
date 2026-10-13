@@ -1,6 +1,6 @@
 ---
 name: use-character
-description: Find, exchange, and apply Doboo characters through the connected gallery and available Pets, Dot, Codex agent, and Watch hosts. Use for Doboo character discovery, sharing, or application; a local export alone does not activate a host.
+description: Find, exchange, and use Doboo characters in the current conversation or an explicitly requested connected host. Use for Doboo character discovery, sharing, or application; a local export alone does not activate a host.
 ---
 
 # Use a Doboo character
@@ -14,7 +14,11 @@ Carry one character's ID, version, appearance, and personality through the reque
 - When receiving is requested, call `adopt_character` with that exact reference, or `import_character_file` for a user-selected file. Preserve the returned local reference and path. `imported-receipt-pending` means the local copy exists but the catalog receipt failed; report that distinction and retry the same reference only when the failure is recoverable.
 - Call `publish_character` only when the user explicitly requests sharing that character. The configured authenticated account owns the publication. Do not change an ID or overwrite another creator's revision to evade a conflict. A catalog import receipt is client-reported persistence, not proof of another host's activation or a real person's use.
 
-## Apply through available hosts
+## Use in the current conversation
+
+For a request to use a received character here, call `character_context` with its exact `id` and `version`. Apply its preferences within the current user's task and inspect a relevant response. This path does not require Pets, Dot, a Codex agent registry, an Apple device, or a particular model provider. Do not turn a general request to use a character into all-host installation. Standard MCP transport alone does not prove that a specific third-party host has loaded or executed the character.
+
+## Apply to explicitly requested hosts
 
 Use `prepare_host_application` for the validated pack and host inputs, and retain the exact ID, version, and digest throughout. These exports and `host_status` describe local artifacts only. Apply only the hosts the user requested, using their currently available tools and supported UI paths.
 

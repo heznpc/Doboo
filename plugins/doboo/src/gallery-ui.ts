@@ -13,9 +13,9 @@ function button(label:string,fn:()=>Promise<void>){const b=document.createElemen
 async function applyCharacter(id:string,version:number){
   // Only a deliberate click creates a request in the current conversation.
   // Author-supplied descriptions never become a user instruction.
-  const sent=await app.sendMessage({role:'user',content:[{type:'text',text:`Doboo 보관함의 ${id}@${version} 캐릭터를 Pets·기존 Dot·Codex 서브에이전트·Watch에 적용해 주세요. Doboo use-character 스킬을 사용하고 각 대상의 실제 적용 결과를 확인해 주세요. 파일 준비와 호스트 실행 결과를 구분해서 알려주세요.`}]});
+  const sent=await app.sendMessage({role:'user',content:[{type:'text',text:`Doboo character_context 도구로 보관함의 ${id}@${version}을 읽고 이 대화에서 해당 캐릭터의 말투와 성격을 적용해 주세요. 다른 기기나 대화로의 적용, 별도 에이전트 설치는 이번 요청에 포함하지 않습니다.`}]});
   if(sent.isError)throw new Error('이 호스트가 적용 요청을 받지 못했습니다. 채팅에서 캐릭터 ID로 적용을 요청해 주세요.');
-  status('이 채팅에 캐릭터 적용을 요청했습니다. 호스트가 각 환경에서 실제 적용 결과를 확인합니다.');
+  status('이 대화에 캐릭터 적용을 요청했습니다. 실제 응답에서 적용 결과를 확인할 수 있습니다.');
 }
 function render(data:any){
   const root=el('cards');root.replaceChildren();el('detail').hidden=true;
@@ -31,9 +31,9 @@ function render(data:any){
         const sprite=(r._meta as any)?.sprite;const canvas=el('sprite') as HTMLCanvasElement;canvas.hidden=!sprite;
         if(sprite){const image=new Image();image.onload=()=>{const ctx=canvas.getContext('2d')!;ctx.clearRect(0,0,192,208);ctx.drawImage(image,0,0,192,208,0,0,192,208);};image.src=`data:image/png;base64,${sprite.base64}`;}
       }));
-      actions.append(button('내 캐릭터로 받기',async()=>{const r=await call('adopt_character',{id:c.id,version:c.version,creatorId:c.creatorId});const data=r.structuredContent as any;status(`${c.name} v${c.version}을 보관함에 받았습니다.${data.receiptRecorded?'':' 갤러리 수신 기록은 재시도가 필요합니다.'} ‘내 캐릭터’에서 함께 쓰기를 눌러 적용할 수 있습니다.`);}));
+      actions.append(button('내 캐릭터로 받기',async()=>{const r=await call('adopt_character',{id:c.id,version:c.version,creatorId:c.creatorId});const data=r.structuredContent as any;status(`${c.name} v${c.version}을 보관함에 받았습니다.${data.receiptRecorded?'':' 갤러리 수신 기록은 재시도가 필요합니다.'} ‘내 캐릭터’에서 이 대화에 적용할 수 있습니다.`);}));
     }else{
-      actions.append(button('함께 쓰기',()=>applyCharacter(c.id,c.version)));
+      actions.append(button('이 대화에서 쓰기',()=>applyCharacter(c.id,c.version)));
       actions.append(button('갤러리에 공유',async()=>{if(!confirm(`${c.name} v${c.version}을 연결된 갤러리 이용자에게 공유할까요?`))return;await call('publish_character',{id:c.id});status(`${c.name}을 공유 갤러리에 게시했습니다.`);}));
     }
     card.append(title,by,description,actions);root.append(card);

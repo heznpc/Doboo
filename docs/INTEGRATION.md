@@ -4,6 +4,13 @@ Owner instruction, 2026-10-13: keep Pets + Dots + subagents as one entertainment
 character, exchanged through a gallery, and integrate this into Doboo's existing
 Watch experience. The order of implementation does not redefine that scope.
 
+The owner's clarification rejects Apple + OpenAI as the product's prerequisite
+or default audience. Use the existing common MCP server and host-specific plugin
+connections. The gallery's MCP App is optional host UI; the same discovery,
+inspection, adoption and character-context tools work without it. A standalone
+website, separate AI service or desktop application is not selected by this work.
+Apple Watch remains one device adapter; its existence does not establish Wear OS support.
+
 ## Existing history
 
 | Commit | Change | Integration treatment |
