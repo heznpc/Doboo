@@ -39,6 +39,17 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "10A582F71973AF9E78E4FF68"
+               BuildableName = "DobooCompanionUITests.xctest"
+               BlueprintName = "DobooCompanionUITests"
+               ReferencedContainer = "container:Doboo.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

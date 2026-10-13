@@ -11,6 +11,8 @@
 		05B1F731F858F79DCF967375 /* CharacterExports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5196D1F89BCB2695670EADF8 /* CharacterExports.swift */; };
 		0A0CFF20D74DD35EB1D820E7 /* SpriteFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */; };
 		0E47A5CEC5ECCF4E78B49030 /* WatchLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC3FA0D9B4D2B089EB34609 /* WatchLibraryView.swift */; };
+		1320FE037F93B9C4781A695B /* TaskDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D08216B704D808CCB0AE39 /* TaskDashboard.swift */; };
+		18635D266E0091CC84311235 /* TaskConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */; };
 		192DB63DA053A10A8CA54E09 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */; };
 		1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */; };
 		2173FD8413C9D3AEB884C965 /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
@@ -28,20 +30,26 @@
 		59BC976B34D332E525A60B09 /* DobooCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */; };
 		5C167CA1C7463486069E1E46 /* Characters in Resources */ = {isa = PBXBuildFile; fileRef = FE7C55DAA1AE9D6D8BBE87F1 /* Characters */; };
 		634030C85319BBDFB65BC8F4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */; };
+		64F0668D22BAACE94BE1F608 /* CompanionTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */; };
 		66B54E3AB5A38356829F719E /* CharacterTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98E8E59E4F4F476BADB64C0 /* CharacterTransfer.swift */; };
 		7D960D230E313D6AED2B70DC /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6F5CE5A982C654D3D733F7C0 /* Localizable.strings */; };
 		80C7E58E4A2D8B81DEF2419F /* BlobGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */; };
+		87466DAAAA34B140CD2B0198 /* TaskConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */; };
 		87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81F3B6265B493C90A307BB5 /* ContentView.swift */; };
 		88A697F22522D90943606018 /* Doboo.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B35D9BE8ACCE00169C708B1D /* Doboo.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		93D59C0F149703294F825DA7 /* CharacterLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */; };
+		947622225AFB98A668AC49D2 /* CompanionTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */; };
 		A4696D6F844B0FBCCEE310BC /* SpriteFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */; };
 		A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
+		A9FCEE585422EAE6591242A6 /* TaskFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */; };
 		AFE0597A0B20420EB5B29E99 /* CharacterLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */; };
 		B1950DA79032A2684AC8CEDD /* CharacterPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */; };
+		B4449AD13D0E4DBFA36423D4 /* CompanionHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58C091D5393D9F34382C30C2 /* CompanionHomeView.swift */; };
 		BC08D40CE393F3B94C3188FB /* CharacterTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98E8E59E4F4F476BADB64C0 /* CharacterTransfer.swift */; };
 		BF6609438B7D34CC28009A54 /* SpriteAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */; };
 		C2621BA56E37E4C0B0348E1B /* CharacterPackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */; };
 		C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3192B768E5A064F7205B25E /* DobooApp.swift */; };
+		C8798ADC4B5E2552F594FA67 /* TaskDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D08216B704D808CCB0AE39 /* TaskDashboard.swift */; };
 		D0BA13A5EA733E367F9D14B4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 12FD1CF5D4B2BB37BF3A91FD /* Assets.xcassets */; };
 		D2069E12AD3A917BF6A85401 /* SoftBlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */; };
 		ECF8A2CC31B977A2EE44070F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6F5CE5A982C654D3D733F7C0 /* Localizable.strings */; };
@@ -64,6 +72,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 681CF2B6A707C77E0200B01E;
 			remoteInfo = Doboo;
+		};
+		752E942697D0DEBDC5F70979 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E4C8FBA65A7BB94A89FA59E7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 75F3063D4D7070653FEE6832;
+			remoteInfo = DobooLibrary;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -88,17 +103,22 @@
 		12FD1CF5D4B2BB37BF3A91FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPackTests.swift; sourceTree = "<group>"; };
 		34879D12FFDD126C89037EE6 /* CharacterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterStore.swift; sourceTree = "<group>"; };
+		3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskConnection.swift; sourceTree = "<group>"; };
 		46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooCharacterView.swift; sourceTree = "<group>"; };
 		4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionState.swift; sourceTree = "<group>"; };
 		5196D1F89BCB2695670EADF8 /* CharacterExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterExports.swift; sourceTree = "<group>"; };
+		58C091D5393D9F34382C30C2 /* CompanionHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionHomeView.swift; sourceTree = "<group>"; };
 		5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometryTests.swift; sourceTree = "<group>"; };
+		61613E1D9B83F7A657DA4214 /* DobooCompanionUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DobooCompanionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteFrame.swift; sourceTree = "<group>"; };
 		69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometry.swift; sourceTree = "<group>"; };
+		73D08216B704D808CCB0AE39 /* TaskDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDashboard.swift; sourceTree = "<group>"; };
 		764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPack.swift; sourceTree = "<group>"; };
 		76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftBlobShape.swift; sourceTree = "<group>"; };
 		7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterLibrary.swift; sourceTree = "<group>"; };
 		80CE7E1C6833548894CC51B7 /* CharacterEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterEditorView.swift; sourceTree = "<group>"; };
 		8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionTask.swift; sourceTree = "<group>"; };
 		9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteAtlas.swift; sourceTree = "<group>"; };
 		B3192B768E5A064F7205B25E /* DobooApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooApp.swift; sourceTree = "<group>"; };
 		B35D9BE8ACCE00169C708B1D /* Doboo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doboo.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,6 +126,7 @@
 		BF984DCF26A4159EE4BD735C /* DobooLibrary.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DobooLibrary.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFD53511DA444E06AD64519C /* DobooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DobooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterLibraryView.swift; sourceTree = "<group>"; };
+		CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFlowUITests.swift; sourceTree = "<group>"; };
 		DE106B1A755FF6BECCB0B39C /* DobooProductViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooProductViews.swift; sourceTree = "<group>"; };
 		DF5A5BEF7CC707448F90CEB0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		ECB75A07F815432BD0624254 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -122,6 +143,8 @@
 				7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */,
 				F98E8E59E4F4F476BADB64C0 /* CharacterTransfer.swift */,
 				9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */,
+				3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */,
+				73D08216B704D808CCB0AE39 /* TaskDashboard.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -135,8 +158,17 @@
 				16FFE695F3ECFFB519CAE963 /* Shared */,
 				BBF6CDF121A0DAC1CD620680 /* Sources */,
 				A3C8099C49037C729B6C6CB7 /* Tests */,
+				71D3B683603B103AB6E1CF31 /* UITests */,
 				A66F110596364F9708314519 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		71D3B683603B103AB6E1CF31 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */,
+			);
+			path = UITests;
 			sourceTree = "<group>";
 		};
 		81DD45426B913A916338D8FB /* Companion */ = {
@@ -146,6 +178,7 @@
 				80CE7E1C6833548894CC51B7 /* CharacterEditorView.swift */,
 				CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */,
 				EE724A48ACE837340A4530E9 /* CompanionApp.swift */,
+				58C091D5393D9F34382C30C2 /* CompanionHomeView.swift */,
 				DF5A5BEF7CC707448F90CEB0 /* Info.plist */,
 			);
 			path = Companion;
@@ -165,6 +198,7 @@
 			isa = PBXGroup;
 			children = (
 				B35D9BE8ACCE00169C708B1D /* Doboo.app */,
+				61613E1D9B83F7A657DA4214 /* DobooCompanionUITests.xctest */,
 				BF984DCF26A4159EE4BD735C /* DobooLibrary.app */,
 				BFD53511DA444E06AD64519C /* DobooTests.xctest */,
 			);
@@ -193,6 +227,7 @@
 				5196D1F89BCB2695670EADF8 /* CharacterExports.swift */,
 				764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */,
 				34879D12FFDD126C89037EE6 /* CharacterStore.swift */,
+				8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */,
 				6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */,
 			);
 			path = Core;
@@ -211,6 +246,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		10A582F71973AF9E78E4FF68 /* DobooCompanionUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 86E83572C4A3D1021E538F39 /* Build configuration list for PBXNativeTarget "DobooCompanionUITests" */;
+			buildPhases = (
+				40FAEF68FFB38C47B60E39B6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				ACFEE646F3DEB42FDD6E1BFD /* PBXTargetDependency */,
+			);
+			name = DobooCompanionUITests;
+			packageProductDependencies = (
+			);
+			productName = DobooCompanionUITests;
+			productReference = 61613E1D9B83F7A657DA4214 /* DobooCompanionUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		681CF2B6A707C77E0200B01E /* Doboo */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 19882F575654B4FF242ADAED /* Build configuration list for PBXNativeTarget "Doboo" */;
@@ -276,6 +329,11 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					10A582F71973AF9E78E4FF68 = {
+						DevelopmentTeam = XS7HJJN7GC;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 75F3063D4D7070653FEE6832;
+					};
 					681CF2B6A707C77E0200B01E = {
 						DevelopmentTeam = XS7HJJN7GC;
 						ProvisioningStyle = Automatic;
@@ -306,6 +364,7 @@
 			projectRoot = "";
 			targets = (
 				681CF2B6A707C77E0200B01E /* Doboo */,
+				10A582F71973AF9E78E4FF68 /* DobooCompanionUITests */,
 				75F3063D4D7070653FEE6832 /* DobooLibrary */,
 				CFE58A14E7C0C6AFC9FB37B3 /* DobooTests */,
 			);
@@ -348,6 +407,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		40FAEF68FFB38C47B60E39B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9FCEE585422EAE6591242A6 /* TaskFlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9E0E59646D5637DEBF8B5F12 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -362,10 +429,14 @@
 				48E5665EE00D00143AD3899F /* CharacterStore.swift in Sources */,
 				BC08D40CE393F3B94C3188FB /* CharacterTransfer.swift in Sources */,
 				31910E39C8623D8336F5D330 /* CompanionApp.swift in Sources */,
+				B4449AD13D0E4DBFA36423D4 /* CompanionHomeView.swift in Sources */,
+				947622225AFB98A668AC49D2 /* CompanionTask.swift in Sources */,
 				59BC976B34D332E525A60B09 /* DobooCharacterView.swift in Sources */,
 				D2069E12AD3A917BF6A85401 /* SoftBlobShape.swift in Sources */,
 				BF6609438B7D34CC28009A54 /* SpriteAtlas.swift in Sources */,
 				0A0CFF20D74DD35EB1D820E7 /* SpriteFrame.swift in Sources */,
+				18635D266E0091CC84311235 /* TaskConnection.swift in Sources */,
+				C8798ADC4B5E2552F594FA67 /* TaskDashboard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -380,6 +451,7 @@
 				F03DCAD30345056B453E2EB6 /* CharacterPack.swift in Sources */,
 				58920BA32FD5B892F4FE4008 /* CharacterStore.swift in Sources */,
 				66B54E3AB5A38356829F719E /* CharacterTransfer.swift in Sources */,
+				64F0668D22BAACE94BE1F608 /* CompanionTask.swift in Sources */,
 				87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */,
 				C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */,
 				28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */,
@@ -387,6 +459,8 @@
 				22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */,
 				EE7771D7664AE8D14D202A1A /* SpriteAtlas.swift in Sources */,
 				A4696D6F844B0FBCCEE310BC /* SpriteFrame.swift in Sources */,
+				87466DAAAA34B140CD2B0198 /* TaskConnection.swift in Sources */,
+				1320FE037F93B9C4781A695B /* TaskDashboard.swift in Sources */,
 				0E47A5CEC5ECCF4E78B49030 /* WatchLibraryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -403,6 +477,11 @@
 			isa = PBXTargetDependency;
 			target = 681CF2B6A707C77E0200B01E /* Doboo */;
 			targetProxy = 56A3998D5A02AABCA28984EE /* PBXContainerItemProxy */;
+		};
+		ACFEE646F3DEB42FDD6E1BFD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 75F3063D4D7070653FEE6832 /* DobooLibrary */;
+			targetProxy = 752E942697D0DEBDC5F70979 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -483,6 +562,23 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		1ACC43EC434FBBF79B8C17E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DobooLibrary;
 			};
 			name = Debug;
 		};
@@ -660,6 +756,23 @@
 			};
 			name = Release;
 		};
+		E953DD627DC94E829A4D0CA3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.doboo.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DobooLibrary;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -686,6 +799,15 @@
 			buildConfigurations = (
 				B2396F046B0C883DC8A7279D /* Debug */,
 				8DEC43077252ABF0604B170A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		86E83572C4A3D1021E538F39 /* Build configuration list for PBXNativeTarget "DobooCompanionUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1ACC43EC434FBBF79B8C17E0 /* Debug */,
+				E953DD627DC94E829A4D0CA3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

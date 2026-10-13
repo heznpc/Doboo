@@ -3,6 +3,7 @@ import WatchKit
 
 struct ContentView: View {
   @Bindable var library: CharacterLibrary
+  @Bindable var tasks: TaskConnection
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.isLuminanceReduced) private var isLuminanceReduced
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,7 +44,8 @@ struct ContentView: View {
               pack: library.selected.watchRepresentation,
               interaction: interaction,
               phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
-              motionEnabled: canAnimate
+              motionEnabled: canAnimate,
+              taskStatus: tasks.tasks.first.flatMap { $0.character.id == library.selected.id && $0.character.version == library.selected.version ? $0.status : nil }
             )
           }
         }
@@ -52,6 +54,7 @@ struct ContentView: View {
         .allowsHitTesting(canInteract)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(library.selected.name)
+        .accessibilityIdentifier("character.play")
         .accessibilityValue(
           interaction.isPressed
             ? Text("character.state.pressed") : Text("character.state.resting")
@@ -63,6 +66,15 @@ struct ContentView: View {
           playAccessibly(in: proxy.size)
         }
       }
+
+      Button { present(.tasks) } label: {
+        Label(tasks.tasks.first?.label ?? "작업 보기", systemImage: "bubble.left")
+          .font(.caption2).lineLimit(1)
+      }
+      .buttonStyle(.plain)
+      .accessibilityIdentifier("home.tasks")
+      .disabled(!isForeground)
+      .padding(.vertical, 4)
 
       HStack {
         Button {
@@ -121,11 +133,20 @@ struct ContentView: View {
         DobooHelpSheetView()
       case .characters:
         WatchLibraryView(library: library)
+      case .tasks:
+        TaskDashboard(connection: tasks, library: library)
       }
     }
     .alert("library.errorTitle", isPresented: Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })) {
       Button("common.ok", role: .cancel) { library.errorMessage = nil }
     } message: { Text(library.errorMessage ?? "") }
+    .task(id: scenePhase) {
+      guard scenePhase == .active else { return }
+      while !Task.isCancelled {
+        if presentedSheet != .tasks { await tasks.refresh() }
+        do { try await Task.sleep(for: .seconds(1)) } catch { return }
+      }
+    }
     .onChange(of: library.selected.id) { _, _ in cancelInteraction() }
     .onChange(of: library.selected.version) { _, _ in cancelInteraction() }
     .onAppear {
@@ -242,11 +263,11 @@ struct ContentView: View {
 }
 
 private enum DobooSheet: String, Identifiable {
-  case welcome, settings, help, characters
+  case welcome, settings, help, characters, tasks
 
   var id: String { rawValue }
 }
 
 #Preview {
-  ContentView(library: CharacterLibrary())
+  ContentView(library: CharacterLibrary(), tasks: TaskConnection())
 }

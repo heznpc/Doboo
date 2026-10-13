@@ -3,10 +3,16 @@ import SwiftUI
 @main
 struct DobooLibraryApp: App {
   @State private var library = CharacterLibrary()
+  @State private var tasks = TaskConnection()
 
   var body: some Scene {
     WindowGroup {
-      CharacterLibraryView(library: library)
+      TabView {
+        CompanionHomeView(library: library, tasks: tasks)
+          .tabItem { Label("동반자", systemImage: "heart") }
+        CharacterLibraryView(library: library)
+          .tabItem { Label("캐릭터", systemImage: "person.crop.square.stack") }
+      }
         .task {
           library.startTransfer()
           #if DEBUG

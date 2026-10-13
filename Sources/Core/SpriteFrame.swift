@@ -8,8 +8,18 @@ struct SpriteFrame: Equatable, Sendable {
   static let idleDurations = [0.280, 0.110, 0.110, 0.140, 0.140, 0.320]
 
   static func frame(layout: CharacterPack.Appearance.Sprite.Layout, elapsed: TimeInterval,
-                    touchX: Double, touchY: Double, pressed: Bool, motionEnabled: Bool) -> SpriteFrame {
+                    touchX: Double, touchY: Double, pressed: Bool, motionEnabled: Bool, taskStatus: String? = nil) -> SpriteFrame {
     guard motionEnabled else { return .init(column: 0, row: 0) }
+    if !pressed, let status = taskStatus, elapsed.isFinite {
+      let action: (row: Int, count: Int, duration: Double)? = switch status {
+      case "queued", "needsApproval": (6, 6, 0.15)
+      case "running": (7, 6, 0.12)
+      case "completed": (8, 6, 0.15)
+      case "failed": (5, 8, 0.14)
+      default: nil
+      }
+      if let action { return .init(column: Int(max(0, elapsed).truncatingRemainder(dividingBy: action.duration * Double(action.count)) / action.duration), row: action.row) }
+    }
     if pressed, layout == .petsV2, touchX.isFinite, touchY.isFinite, hypot(touchX, touchY) > 0.15 {
       // Pointer coordinates: up = 0°, clockwise, 16 directions.
       let angle = atan2(touchX, -touchY)
