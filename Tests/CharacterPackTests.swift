@@ -24,6 +24,15 @@ struct CharacterPackTests {
     #expect(try CharacterPack.decode(pack.encoded()) == pack)
   }
 
+  @Test func revisionRangeIsIndependentOfPlatformIntegerWidth() throws {
+    for version: Int64 in [2_147_483_648, 9_007_199_254_740_991] {
+      var pack = CharacterPack.builtin
+      pack.version = version
+      #expect(try CharacterPack.decode(pack.encoded()).version == version)
+      #expect(try CharacterExports.dots(pack).contains("\(version)"))
+    }
+  }
+
   @Test func bundledExampleMatchesOfflineFallback() throws {
     // The fixture is a repository resource, not an independently invented default.
     let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -91,7 +100,7 @@ struct CharacterPackTests {
       let data = Data(output[start.upperBound..<end.lowerBound].utf8)
       let payload = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
       #expect(payload["id"] as? String == pack.id)
-      #expect(payload["version"] as? Int == pack.version)
+      #expect((payload["version"] as? NSNumber)?.int64Value == pack.version)
       #expect(payload["name"] as? String == pack.name)
       #expect((payload["identity"] as? [String: Any])?["backstory"] as? String == pack.identity.backstory)
       #expect((payload["personality"] as? [String: Any])?["instructions"] as? [String] == pack.personality.instructions)

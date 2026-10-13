@@ -1,0 +1,10 @@
+{
+  "name": "doboo-local",
+  "interface": { "displayName": "Doboo Development" },
+  "plugins": [{
+    "name": "doboo",
+    "source": { "source": "local", "path": "./plugins/doboo" },
+    "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+    "category": "Productivity"
+  }]
+}

@@ -14,10 +14,20 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
       - name: Check source and resource consistency without running the app
         run: python3 scripts/check_repository.py
       - name: Test character interchange tools
         run: npm test
+      - name: Verify the internal plugin and authenticated exchange
+        working-directory: plugins/doboo
+        run: |
+          npm ci
+          npm run check
+          npm test
+          git diff --exit-code -- dist
   native-core:
     runs-on: macos-latest
     timeout-minutes: 10

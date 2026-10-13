@@ -32,7 +32,9 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
 
   var format: String
   var id: String
-  var version: Int
+  // Watch arm64_32 uses a 32-bit Int. The interchange format allows every
+  // JavaScript-safe integer, so revisions need a fixed-width representation.
+  var version: Int64
   var name: String
   var description: String
   var creator: String

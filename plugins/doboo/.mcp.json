@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "doboo": {
+      "command": "node",
+      "args": [
+        "./dist/server.mjs"
+      ],
+      "env_vars": [
+        "DOBOO_CATALOG_URL",
+        "DOBOO_CATALOG_TOKEN",
+        "DOBOO_DATA_DIR",
+        "DOBOO_WORKSPACE"
+      ]
+    }
+  }
+}

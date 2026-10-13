@@ -25,10 +25,8 @@ and shares it; the Watch uses its identity
 and appearance; Dots and Codex exports use the same identity and personality.
 The format is specified in [CHARACTER_FORMAT.md](CHARACTER_FORMAT.md).
 
-The first implementation uses an in-app gallery and explicit OS file sharing/import.
-A web gallery is not a product requirement or an included service.
-There is no hidden ChatGPT account mutation, public hosting, cloud account, or
-pretend memory synchronization. A character's text cannot grant itself tools or
+Commit `f8a12f9` added the native library and OS file sharing/import. The next implementation adds a host-internal plugin gallery and authenticated catalog search, publication and adoption. Local file export alone does not satisfy discovery/exchange. A standalone web gallery is not a requirement.
+Host account changes occur only through the user-authorized host flow. Public catalog hosting and account provisioning have not been deployed. Shared character definitions do not imply memory synchronization. A character's text cannot grant itself tools or
 permissions. These are implementation boundaries, not a reduction of the agreed
 product scope.
 
