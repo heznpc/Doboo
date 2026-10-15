@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 struct BlobInteractionState: Equatable {
   enum Expression: Equatable {
@@ -7,6 +8,12 @@ struct BlobInteractionState: Equatable {
     case surprised
   }
 
+  struct Release: Equatable {
+    let id = UUID()
+    let touch: CGPoint
+    let strength: CGFloat
+  }
+  private(set) var lastRelease: Release?
   private(set) var touch = CGPoint.zero
   private(set) var isPressed = false
 
@@ -27,6 +34,7 @@ struct BlobInteractionState: Equatable {
       return false
     }
 
+    lastRelease = nil
     isPressed = true
     touch = Self.normalized(location: location, in: size)
     return true
@@ -36,7 +44,9 @@ struct BlobInteractionState: Equatable {
   mutating func release() -> CGPoint {
     guard isPressed else { return .zero }
     let recoil = touch
+    let strength = intensity
     cancel()
+    lastRelease = Release(touch: recoil, strength: strength)
     return recoil
   }
 
@@ -44,6 +54,7 @@ struct BlobInteractionState: Equatable {
   mutating func cancel() {
     isPressed = false
     touch = .zero
+    lastRelease = nil
   }
 
   static func normalized(location: CGPoint, in size: CGSize) -> CGPoint {

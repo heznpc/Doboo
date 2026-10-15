@@ -26,10 +26,13 @@ struct BlobInteractionStateTests {
     #expect(abs(state.touch.y + 0.6) < 0.0001)
     #expect(state.expression == .surprised)
 
+    let strength = state.intensity
     let recoil = state.release()
 
     #expect(abs(recoil.x - 0.6) < 0.0001)
     #expect(abs(recoil.y + 0.6) < 0.0001)
+    #expect(state.lastRelease?.touch == recoil)
+    #expect(state.lastRelease?.strength == strength)
     #expect(!state.isPressed)
     #expect(state.touch == .zero)
     #expect(state.expression == .calm)
@@ -131,7 +134,11 @@ struct BlobInteractionStateTests {
     state.press(at: CGPoint(x: 100, y: 50), in: CGSize(width: 100, height: 100))
 
     #expect(state.release() == CGPoint(x: 1, y: 0))
+    let released = state
     #expect(state.release() == .zero)
-    #expect(state == BlobInteractionState())
+    #expect(state == released)
+    #expect(!state.isPressed)
+    #expect(state.touch == .zero)
+    #expect(state.expression == .calm)
   }
 }

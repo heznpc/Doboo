@@ -12,7 +12,7 @@ struct CompanionHomeView: View {
       VStack(spacing: 24) {
         Spacer(minLength: 12)
         Text(library.selected.name).font(.largeTitle.weight(.semibold))
-        CharacterPlayView(pack: library.selected, taskStatus: matchingTask?.status)
+        CharacterPlayView(pack: library.selected, isEnabled: !showingTasks)
           .frame(height: min(480, max(180, proxy.size.height * 0.55)))
           .frame(maxWidth: 520)
         Text("눌러 보고, 끌어 보고, 잠깐 같이 쉬어요.")

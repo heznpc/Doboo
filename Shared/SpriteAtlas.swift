@@ -51,11 +51,19 @@ struct PackCharacterView: View {
   var taskStatus: String? = nil
   @State private var atlas: SpriteAtlas?
   @State private var failed = false
+  @State private var releaseStart: TimeInterval?
+  @State private var releaseTouch = CGPoint.zero
+  @State private var releaseStrength = 0.0
+  private var recoil: CGFloat {
+    guard let releaseStart else { return 0 }
+    return CGFloat(CompanionMotion.rebound(elapsed: phase - releaseStart, strength: releaseStrength,
+      enabled: motionEnabled && !interaction.isPressed))
+  }
 
   var body: some View {
     Group {
       if pack.appearance.renderer == .nativeDoboo {
-        DobooCharacterView(interaction: interaction, recoil: 0, phase: phase,
+        DobooCharacterView(interaction: interaction, recoil: recoil, phase: phase,
                            motionEnabled: motionEnabled, tint: Color(hex: pack.appearance.tint))
       } else if let atlas {
         let frame = SpriteFrame.frame(layout: atlas.layout, elapsed: phase,
@@ -67,7 +75,7 @@ struct PackCharacterView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(10)
             .scaleEffect(x: interaction.isPressed ? 1.04 : 1,
-                         y: interaction.isPressed ? 0.94 : 1)
+                         y: interaction.isPressed ? 0.94 : 1 + recoil * 0.06)
             .offset(x: interaction.touch.x * interaction.intensity * 5,
                     y: interaction.touch.y * interaction.intensity * 4)
             .animation(motionEnabled ? .spring(response: 0.4, dampingFraction: 0.6) : nil,
@@ -80,7 +88,17 @@ struct PackCharacterView: View {
         ProgressView()
       }
     }
+    .offset(x: -releaseTouch.x * recoil * 6, y: -releaseTouch.y * recoil * 5)
+    .onChange(of: interaction.lastRelease) { _, release in
+      guard motionEnabled, let release else { releaseStart = nil; return }
+      releaseTouch = release.touch
+      releaseStrength = Double(release.strength)
+      releaseStart = phase
+    }
+    .onChange(of: motionEnabled) { _, enabled in if !enabled { releaseStart = nil } }
+    .onDisappear { releaseStart = nil }
     .task(id: "\(pack.id)@\(pack.version)") {
+      releaseStart = nil
       atlas = nil
       failed = false
       guard pack.appearance.renderer == .spritesheet else { return }

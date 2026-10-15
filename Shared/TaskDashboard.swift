@@ -6,6 +6,15 @@ struct TaskDashboard: View {
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var showConnection = false
+  @State private var showForgetPending = false
+
+  private func displayPack(_ pack: CharacterPack) -> CharacterPack {
+    #if os(watchOS)
+    pack.watchRepresentation
+    #else
+    pack
+    #endif
+  }
 
   var body: some View {
     NavigationStack {
@@ -16,7 +25,7 @@ struct TaskDashboard: View {
           HStack {
             TimelineView(.animation(minimumInterval: 0.15, paused: reduceMotion || scenePhase != .active)) { time in
               if let character {
-              PackCharacterView(pack: character.watchRepresentation, interaction: BlobInteractionState(), phase: time.date.timeIntervalSinceReferenceDate,
+              PackCharacterView(pack: displayPack(character), interaction: BlobInteractionState(), phase: time.date.timeIntervalSinceReferenceDate,
                 motionEnabled: !reduceMotion && scenePhase == .active, taskStatus: current?.status)
                 .frame(width: 64, height: 70)
                 .opacity(current?.status == "interrupted" ? 0.55 : 1)
@@ -35,6 +44,11 @@ struct TaskDashboard: View {
           Button(connection.pendingRetry ? "같은 요청 다시 확인" : "작업 부탁하기") { Task { await connection.submit(character: library.selected) } }
             .buttonStyle(.borderedProminent).disabled((!connection.canSubmit && !connection.pendingRetry) || connection.submitting)
             .accessibilityIdentifier("task.submit")
+          if connection.pendingRetry {
+            Button("task.pendingForget", role: .destructive) { showForgetPending = true }
+              .disabled(connection.submitting)
+              .accessibilityIdentifier("task.forgetPending")
+          }
           #endif
           if let task = current {
             HStack {
@@ -89,6 +103,12 @@ struct TaskDashboard: View {
         }.padding()
       }
       .navigationTitle("Doboo 작업")
+      .alert("task.pendingForgetTitle", isPresented: $showForgetPending) {
+        Button("editor.cancel", role: .cancel) {}
+        Button("task.pendingForget", role: .destructive) { connection.forgetPending() }
+      } message: {
+        Text("task.pendingForgetHelp")
+      }
       #if os(watchOS)
       .font(.caption)
       #endif
@@ -97,7 +117,7 @@ struct TaskDashboard: View {
           Form {
             TextField("컴퓨터 주소", text: $connection.address).textContentType(.URL)
             SecureField("연결 키", text: $connection.connectionToken)
-            Button("연결") { Task { await connection.connect(); if connection.connected { showConnection = false } } }
+            Button("연결") { Task { if await connection.connect() { showConnection = false } } }
             if let error = connection.error { Text(error).foregroundStyle(.red) }
           }.navigationTitle("컴퓨터 연결")
         }

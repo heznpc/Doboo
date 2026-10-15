@@ -12,14 +12,18 @@
 		0A0CFF20D74DD35EB1D820E7 /* SpriteFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */; };
 		0E47A5CEC5ECCF4E78B49030 /* WatchLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EC3FA0D9B4D2B089EB34609 /* WatchLibraryView.swift */; };
 		1320FE037F93B9C4781A695B /* TaskDashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73D08216B704D808CCB0AE39 /* TaskDashboard.swift */; };
+		17209462F3B0EA225C521C5C /* TaskSubmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D509A3F3283E56F28B8E21 /* TaskSubmissionTests.swift */; };
 		18635D266E0091CC84311235 /* TaskConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */; };
 		192DB63DA053A10A8CA54E09 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */; };
 		1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */; };
 		2173FD8413C9D3AEB884C965 /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
 		22696EEB028E270F696F5490 /* SoftBlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */; };
 		28DA314F25FA8BB81D0FB584 /* DobooCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */; };
+		2A0AE1533E6A21E69B3C5003 /* TaskSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2020575B9342E6A4FEFCEDDF /* TaskSubmission.swift */; };
 		2ECC7A7278081FDB311CD02E /* BlobGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */; };
 		31910E39C8623D8336F5D330 /* CompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE724A48ACE837340A4530E9 /* CompanionApp.swift */; };
+		337A1F16B527037A5F57229E /* CompanionMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6F451DD06473CB6CE562B62 /* CompanionMotionTests.swift */; };
+		3A94EFB8C304887E90291F4F /* CompanionInteractionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4786E63F588E9AE78910ACDF /* CompanionInteractionUITests.swift */; };
 		3BCCD07336A9861E46ED34CD /* CharacterExports.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5196D1F89BCB2695670EADF8 /* CharacterExports.swift */; };
 		3BFCE89523F298718A0C0844 /* BlobGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */; };
 		436AF1EA9F7C4BE52FFB5FE3 /* CharacterLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */; };
@@ -36,10 +40,13 @@
 		80C7E58E4A2D8B81DEF2419F /* BlobGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */; };
 		87466DAAAA34B140CD2B0198 /* TaskConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */; };
 		87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B81F3B6265B493C90A307BB5 /* ContentView.swift */; };
+		883E9004DBC0ED1051EB95D6 /* TaskSubmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2020575B9342E6A4FEFCEDDF /* TaskSubmission.swift */; };
 		88A697F22522D90943606018 /* Doboo.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B35D9BE8ACCE00169C708B1D /* Doboo.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		93D59C0F149703294F825DA7 /* CharacterLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */; };
 		947622225AFB98A668AC49D2 /* CompanionTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */; };
+		A0343D1E68F8933F45F9A286 /* CompanionMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */; };
 		A4696D6F844B0FBCCEE310BC /* SpriteFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */; };
+		A482FDA52AFBFAF8C5A4D454 /* CompanionMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */; };
 		A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
 		A9FCEE585422EAE6591242A6 /* TaskFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */; };
 		AFE0597A0B20420EB5B29E99 /* CharacterLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */; };
@@ -101,13 +108,17 @@
 		0C7BC73C60EEA8334FF1DDC0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0EC3FA0D9B4D2B089EB34609 /* WatchLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLibraryView.swift; sourceTree = "<group>"; };
 		12FD1CF5D4B2BB37BF3A91FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2020575B9342E6A4FEFCEDDF /* TaskSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSubmission.swift; sourceTree = "<group>"; };
 		21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPackTests.swift; sourceTree = "<group>"; };
 		34879D12FFDD126C89037EE6 /* CharacterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterStore.swift; sourceTree = "<group>"; };
+		34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotion.swift; sourceTree = "<group>"; };
 		3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskConnection.swift; sourceTree = "<group>"; };
 		46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooCharacterView.swift; sourceTree = "<group>"; };
+		4786E63F588E9AE78910ACDF /* CompanionInteractionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionInteractionUITests.swift; sourceTree = "<group>"; };
 		4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobInteractionState.swift; sourceTree = "<group>"; };
 		5196D1F89BCB2695670EADF8 /* CharacterExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterExports.swift; sourceTree = "<group>"; };
 		58C091D5393D9F34382C30C2 /* CompanionHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionHomeView.swift; sourceTree = "<group>"; };
+		58D509A3F3283E56F28B8E21 /* TaskSubmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSubmissionTests.swift; sourceTree = "<group>"; };
 		5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometryTests.swift; sourceTree = "<group>"; };
 		61613E1D9B83F7A657DA4214 /* DobooCompanionUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DobooCompanionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteFrame.swift; sourceTree = "<group>"; };
@@ -122,6 +133,7 @@
 		9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteAtlas.swift; sourceTree = "<group>"; };
 		B3192B768E5A064F7205B25E /* DobooApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooApp.swift; sourceTree = "<group>"; };
 		B35D9BE8ACCE00169C708B1D /* Doboo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doboo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6F451DD06473CB6CE562B62 /* CompanionMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotionTests.swift; sourceTree = "<group>"; };
 		B81F3B6265B493C90A307BB5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		BF984DCF26A4159EE4BD735C /* DobooLibrary.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DobooLibrary.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFD53511DA444E06AD64519C /* DobooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DobooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -166,6 +178,7 @@
 		71D3B683603B103AB6E1CF31 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				4786E63F588E9AE78910ACDF /* CompanionInteractionUITests.swift */,
 				CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */,
 			);
 			path = UITests;
@@ -190,6 +203,8 @@
 				5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */,
 				F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */,
 				21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */,
+				B6F451DD06473CB6CE562B62 /* CompanionMotionTests.swift */,
+				58D509A3F3283E56F28B8E21 /* TaskSubmissionTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -227,8 +242,10 @@
 				5196D1F89BCB2695670EADF8 /* CharacterExports.swift */,
 				764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */,
 				34879D12FFDD126C89037EE6 /* CharacterStore.swift */,
+				34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */,
 				8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */,
 				6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */,
+				2020575B9342E6A4FEFCEDDF /* TaskSubmission.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -404,6 +421,8 @@
 				2ECC7A7278081FDB311CD02E /* BlobGeometryTests.swift in Sources */,
 				1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */,
 				C2621BA56E37E4C0B0348E1B /* CharacterPackTests.swift in Sources */,
+				337A1F16B527037A5F57229E /* CompanionMotionTests.swift in Sources */,
+				17209462F3B0EA225C521C5C /* TaskSubmissionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -411,6 +430,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3A94EFB8C304887E90291F4F /* CompanionInteractionUITests.swift in Sources */,
 				A9FCEE585422EAE6591242A6 /* TaskFlowUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -430,6 +450,7 @@
 				BC08D40CE393F3B94C3188FB /* CharacterTransfer.swift in Sources */,
 				31910E39C8623D8336F5D330 /* CompanionApp.swift in Sources */,
 				B4449AD13D0E4DBFA36423D4 /* CompanionHomeView.swift in Sources */,
+				A0343D1E68F8933F45F9A286 /* CompanionMotion.swift in Sources */,
 				947622225AFB98A668AC49D2 /* CompanionTask.swift in Sources */,
 				59BC976B34D332E525A60B09 /* DobooCharacterView.swift in Sources */,
 				D2069E12AD3A917BF6A85401 /* SoftBlobShape.swift in Sources */,
@@ -437,6 +458,7 @@
 				0A0CFF20D74DD35EB1D820E7 /* SpriteFrame.swift in Sources */,
 				18635D266E0091CC84311235 /* TaskConnection.swift in Sources */,
 				C8798ADC4B5E2552F594FA67 /* TaskDashboard.swift in Sources */,
+				2A0AE1533E6A21E69B3C5003 /* TaskSubmission.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -451,6 +473,7 @@
 				F03DCAD30345056B453E2EB6 /* CharacterPack.swift in Sources */,
 				58920BA32FD5B892F4FE4008 /* CharacterStore.swift in Sources */,
 				66B54E3AB5A38356829F719E /* CharacterTransfer.swift in Sources */,
+				A482FDA52AFBFAF8C5A4D454 /* CompanionMotion.swift in Sources */,
 				64F0668D22BAACE94BE1F608 /* CompanionTask.swift in Sources */,
 				87BC53A2191CF03FF7F4C527 /* ContentView.swift in Sources */,
 				C7F4EDA09D698655C8D9EAF0 /* DobooApp.swift in Sources */,
@@ -461,6 +484,7 @@
 				A4696D6F844B0FBCCEE310BC /* SpriteFrame.swift in Sources */,
 				87466DAAAA34B140CD2B0198 /* TaskConnection.swift in Sources */,
 				1320FE037F93B9C4781A695B /* TaskDashboard.swift in Sources */,
+				883E9004DBC0ED1051EB95D6 /* TaskSubmission.swift in Sources */,
 				0E47A5CEC5ECCF4E78B49030 /* WatchLibraryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

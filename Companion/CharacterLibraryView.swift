@@ -16,7 +16,7 @@ struct CharacterLibraryView: View {
           }
           .padding(.top, 8)
 
-          CharacterPlayView(pack: library.selected)
+          CharacterPlayView(pack: library.selected, isEnabled: !creating && !importing)
             .frame(height: 240)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 32))
             .overlay(alignment: .bottomLeading) {
@@ -101,7 +101,7 @@ struct CharacterDetailView: View {
     let pack = currentPack
     ScrollView {
       VStack(alignment: .leading, spacing: 24) {
-        CharacterPlayView(pack: pack).frame(height: 280)
+        CharacterPlayView(pack: pack, isEnabled: !editing && !showingInstructions).frame(height: 280)
           .background(Color(hex: pack.appearance.tint).opacity(0.10), in: RoundedRectangle(cornerRadius: 30))
         VStack(alignment: .leading, spacing: 8) {
           Text(pack.name).font(.largeTitle.bold()).accessibilityIdentifier("character.detail.name")
@@ -215,7 +215,7 @@ private struct DotInstructionsView: View {
 /// Uses the same interaction state and renderer as Watch, with iPhone haptics.
 struct CharacterPlayView: View {
   let pack: CharacterPack
-  var taskStatus: String? = nil
+  var isEnabled = true
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
   @GestureState private var dragging = false
@@ -223,46 +223,85 @@ struct CharacterPlayView: View {
   @State private var pressedFeedback = false
   @State private var releaseFeedback = false
   @State private var accessibleTask: Task<Void, Never>?
-  private var animated: Bool { !reduceMotion && scenePhase == .active }
+  @State private var accessiblePlayID: UUID?
+  private var canInteract: Bool { isEnabled && scenePhase == .active }
+  private var animated: Bool { canInteract && !reduceMotion }
 
   var body: some View {
     GeometryReader { proxy in
       TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animated)) { time in
-        PackCharacterView(pack: pack.watchRepresentation, interaction: interaction,
-          phase: animated ? time.date.timeIntervalSinceReferenceDate : 0, motionEnabled: animated, taskStatus: taskStatus)
+        PackCharacterView(pack: pack, interaction: interaction,
+          phase: animated ? time.date.timeIntervalSinceReferenceDate : 0, motionEnabled: animated)
       }
       .contentShape(Rectangle())
       .gesture(DragGesture(minimumDistance: 0).updating($dragging) { _, active, _ in active = true }
         .onChanged { value in
-          guard scenePhase == .active else { return }
-          accessibleTask?.cancel()
-          if !interaction.isPressed { pressedFeedback.toggle() }
-          interaction.press(at: value.location, in: proxy.size)
+          guard canInteract else { cancelInteraction(); return }
+          if accessiblePlayID != nil { cancelInteraction() }
+          let wasPressed = interaction.isPressed
+          guard interaction.press(at: value.location, in: proxy.size) else { cancelInteraction(); return }
+          if !wasPressed { pressedFeedback.toggle() }
         }
         .onEnded { _ in
-          if interaction.isPressed { interaction.release(); releaseFeedback.toggle() }
+          guard accessiblePlayID == nil else { return }
+          guard canInteract else { cancelInteraction(); return }
+          releaseInteraction()
         })
+      .allowsHitTesting(canInteract)
       .accessibilityElement(children: .ignore)
       .accessibilityLabel(pack.name)
       .accessibilityValue(interaction.isPressed ? Text("character.state.pressed") : Text("character.state.resting"))
       .accessibilityHint("character.hint")
       .accessibilityAddTraits(.isButton)
       .accessibilityIdentifier("character.play")
-      .accessibilityAction {
-        accessibleTask?.cancel()
-        interaction.press(at: CGPoint(x: proxy.size.width * 0.7, y: proxy.size.height * 0.45), in: proxy.size)
-        pressedFeedback.toggle()
-        accessibleTask = Task { @MainActor in
-          do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
-          guard !Task.isCancelled else { return }
-          interaction.release(); releaseFeedback.toggle()
-        }
-      }
+      .accessibilityAction { playAccessibly(in: proxy.size) }
+      .accessibilityAction(named: "character.action.squeeze") { playAccessibly(in: proxy.size) }
+      .accessibilityAction(named: "character.action.left") { playAccessibly(in: proxy.size, point: .init(x: 0.2, y: 0.5)) }
+      .accessibilityAction(named: "character.action.right") { playAccessibly(in: proxy.size, point: .init(x: 0.8, y: 0.5)) }
+      .accessibilityAction(named: "character.action.top") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.2)) }
+      .accessibilityAction(named: "character.action.bottom") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.8)) }
     }
     .sensoryFeedback(.impact(weight: .light), trigger: pressedFeedback)
     .sensoryFeedback(.selection, trigger: releaseFeedback)
-    .onChange(of: dragging) { _, active in if !active { interaction.cancel() } }
-    .onChange(of: scenePhase) { _, state in if state != .active { accessibleTask?.cancel(); interaction.cancel() } }
-    .onDisappear { accessibleTask?.cancel(); interaction.cancel() }
+    .onChange(of: dragging) { _, active in
+      if !active && accessiblePlayID == nil && interaction.isPressed { cancelInteraction() }
+    }
+    .onChange(of: canInteract) { _, enabled in if !enabled { cancelInteraction() } }
+    .onChange(of: reduceMotion) { _, _ in cancelInteraction() }
+    .onChange(of: pack.id) { _, _ in cancelInteraction() }
+    .onChange(of: pack.version) { _, _ in cancelInteraction() }
+    .onDisappear { cancelInteraction() }
+  }
+
+  private func playAccessibly(in size: CGSize, point: UnitPoint = .init(x: 0.7, y: 0.45)) {
+    guard canInteract else { return }
+    cancelInteraction()
+    guard interaction.press(at: CGPoint(x: size.width * point.x, y: size.height * point.y), in: size)
+    else { return }
+    pressedFeedback.toggle()
+    let playID = UUID()
+    accessiblePlayID = playID
+    accessibleTask = Task { @MainActor in
+      do { try await Task.sleep(for: .milliseconds(300)) } catch { return }
+      guard !Task.isCancelled, accessiblePlayID == playID, canInteract else { return }
+      releaseInteraction()
+      accessiblePlayID = nil
+      accessibleTask = nil
+    }
+  }
+
+  private func releaseInteraction() {
+    guard interaction.isPressed else { return }
+    interaction.release()
+    releaseFeedback.toggle()
+  }
+
+  private func cancelInteraction() {
+    accessibleTask?.cancel()
+    accessibleTask = nil
+    accessiblePlayID = nil
+    var transaction = Transaction(animation: nil)
+    transaction.disablesAnimations = true
+    withTransaction(transaction) { interaction.cancel() }
   }
 }

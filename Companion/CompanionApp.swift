@@ -11,7 +11,7 @@ struct DobooLibraryApp: App {
         CompanionHomeView(library: library, tasks: tasks)
           .tabItem { Label("동반자", systemImage: "heart") }
         CharacterLibraryView(library: library)
-          .tabItem { Label("캐릭터", systemImage: "person.crop.square.stack") }
+          .tabItem { Label("캐릭터", systemImage: "person.crop.square") }
       }
         .task {
           library.startTransfer()

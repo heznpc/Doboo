@@ -44,8 +44,7 @@ struct ContentView: View {
               pack: library.selected.watchRepresentation,
               interaction: interaction,
               phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
-              motionEnabled: canAnimate,
-              taskStatus: tasks.tasks.first.flatMap { $0.character.id == library.selected.id && $0.character.version == library.selected.version ? $0.status : nil }
+              motionEnabled: canAnimate
             )
           }
         }
@@ -65,6 +64,10 @@ struct ContentView: View {
         .accessibilityAction(named: "character.action.squeeze") {
           playAccessibly(in: proxy.size)
         }
+        .accessibilityAction(named: "character.action.left") { playAccessibly(in: proxy.size, point: .init(x: 0.2, y: 0.5)) }
+        .accessibilityAction(named: "character.action.right") { playAccessibly(in: proxy.size, point: .init(x: 0.8, y: 0.5)) }
+        .accessibilityAction(named: "character.action.top") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.2)) }
+        .accessibilityAction(named: "character.action.bottom") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.8)) }
       }
 
       Button { present(.tasks) } label: {
@@ -88,7 +91,7 @@ struct ContentView: View {
         Spacer(minLength: 0)
 
         Button { present(.characters) } label: {
-          Image(systemName: "person.crop.square.stack").frame(minWidth: 44, minHeight: 44)
+          Image(systemName: "person.crop.square").frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityLabel("library.title")
 
@@ -228,10 +231,10 @@ struct ContentView: View {
     withTransaction(transaction) { interaction.cancel() }
   }
 
-  private func playAccessibly(in size: CGSize) {
+  private func playAccessibly(in size: CGSize, point: UnitPoint = .init(x: 0.7, y: 0.45)) {
     guard canInteract else { return }
     cancelInteraction()
-    guard interaction.press(at: CGPoint(x: size.width * 0.7, y: size.height * 0.45), in: size)
+    guard interaction.press(at: CGPoint(x: size.width * point.x, y: size.height * point.y), in: size)
     else { return }
     playHaptic(.click)
 

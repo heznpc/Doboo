@@ -2,7 +2,7 @@
 "character.name" = "Doboo";
 "character.state.pressed" = "Being squeezed";
 "character.state.resting" = "Resting";
-"character.hint" = "Double-tap to squeeze and release.";
+"character.hint" = "Double-tap to squeeze and release. Choose a direction from the Actions menu.";
 "character.action.squeeze" = "Squeeze and release";
 "welcome.title" = "Meet Doboo";
 "welcome.body" = "Take a small break with your squishy watch companion.";
@@ -16,7 +16,7 @@
 "help.title" = "How to play";
 "help.touch" = "Touch and drag Doboo to squish it.";
 "help.release" = "Lift your finger and Doboo springs back.";
-"help.voiceOver" = "With VoiceOver, select Doboo and double-tap to squeeze and release.";
+"help.voiceOver" = "With VoiceOver, select Doboo and double-tap to squeeze and release. Choose touch left, right, top, or bottom from the Actions menu.";
 "help.playTitle" = "Play with Doboo";
 "help.haptics" = "If you cannot feel a tap, check haptics in Doboo and Apple Watch settings.";
 "help.motion" = "Motion and play pause when the display dims or you leave the app. Doboo respects Reduce Motion.";
@@ -99,3 +99,12 @@
 "editor.watchAppearance" = "Watch appearance";
 "editor.watchNative" = "Use the soft Doboo form on Watch";
 "editor.watchHelp" = "Keep the same name, personality and version. Turn this off to use the original sprite for characters with a different shape.";
+
+"character.action.left" = "Touch left";
+"character.action.right" = "Touch right";
+"character.action.top" = "Touch top";
+"character.action.bottom" = "Touch bottom";
+
+"task.pendingForget" = "Clear pending request";
+"task.pendingForgetTitle" = "Clear the request awaiting confirmation?";
+"task.pendingForgetHelp" = "This clears the request record on this device. It does not stop work on your computer. Check the original computer before submitting again.";
