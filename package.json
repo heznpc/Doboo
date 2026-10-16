@@ -12,6 +12,7 @@
     "test:task-bridge": "node --test task-bridge/*.test.mjs",
     "task:bridge": "node task-bridge/server.mjs",
     "build:device": "python3 scripts/build_device.py",
-    "test:device-build": "python3 -m unittest discover -s scripts -p test_build_device.py"
+    "test:device-build": "python3 -m unittest discover -s scripts -p test_build_device.py",
+    "test:watch-widgets": "python3 Widgets/Tests/run.py"
   }
 }

@@ -1,5 +1,39 @@
 import SwiftUI
 
+struct DobooMenuView: View {
+  let name: String
+  let widgetSyncError: String?
+  let onCharacters: () -> Void
+  let onSettings: () -> Void
+  let onHelp: () -> Void
+  @Environment(\.dismiss) private var dismiss
+
+  var body: some View {
+    NavigationStack {
+      List {
+        Button(action: onCharacters) {
+          Label("library.title", systemImage: "person.crop.square")
+        }
+        Button(action: onSettings) {
+          Label("settings.title", systemImage: "gearshape")
+        }
+        Button(action: onHelp) {
+          Label("help.title", systemImage: "questionmark.circle")
+        }
+        if let widgetSyncError {
+          Text(widgetSyncError).font(.footnote).foregroundStyle(.secondary)
+        }
+      }
+      .navigationTitle(name)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("common.close") { dismiss() }
+        }
+      }
+    }
+  }
+}
+
 struct DobooWelcomeView: View {
   let onStart: () -> Void
 
@@ -115,6 +149,12 @@ struct DobooHelpView: View {
         Text("help.motion")
       } header: {
         Text("help.comfortTitle")
+      }
+      Section {
+        Text("help.widgetPlacement")
+        Text("help.widgetMotion")
+      } header: {
+        Text("help.widgetTitle")
       }
     }
     .navigationTitle("help.title")

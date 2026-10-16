@@ -1,0 +1,5 @@
+"widget.name" = "Doboo Companion";
+"widget.description" = "Keep your selected Watch character on your watch face or in the Smart Stack.";
+"widget.openCompanion" = "Tap to spend time together";
+"widget.openToSync" = "Open Doboo to sync";
+"widget.fallback" = "Showing the default Doboo. Open the app to sync your character.";

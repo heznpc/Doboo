@@ -32,24 +32,23 @@ struct ContentView: View {
   }
 
   var body: some View {
-    VStack(spacing: 0) {
-      Text(library.selected.name).font(.caption.weight(.semibold)).lineLimit(1)
-        .accessibilityIdentifier("character.activeName")
-      GeometryReader { proxy in
-        ZStack {
-          ambientDots
+    GeometryReader { proxy in
+      let side = min(proxy.size.width, proxy.size.height * 0.8)
+      let characterSize = CGSize(width: side * 1.08, height: side * 1.08)
+      TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !canAnimate)) { timeline in
+        let phase = canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0
+        let pose = CompanionMotion.idle(elapsed: phase, enabled: canAnimate)
 
-          TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: !canAnimate)) { timeline in
-            PackCharacterView(
-              pack: library.selected.watchRepresentation,
-              interaction: interaction,
-              phase: canAnimate ? timeline.date.timeIntervalSinceReferenceDate : 0,
-              motionEnabled: canAnimate
-            )
-          }
-        }
+        PackCharacterView(
+          pack: library.selected.watchRepresentation,
+          interaction: interaction,
+          phase: phase,
+          motionEnabled: canAnimate,
+          idleGaze: CGPoint(x: pose.gazeX, y: pose.gazeY)
+        )
+        .frame(width: characterSize.width, height: characterSize.height)
         .contentShape(Rectangle())
-        .gesture(blobGesture(in: proxy.size))
+        .gesture(blobGesture(in: characterSize))
         .allowsHitTesting(canInteract)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(library.selected.name)
@@ -60,67 +59,28 @@ struct ContentView: View {
         )
         .accessibilityHint("character.hint")
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction { playAccessibly(in: proxy.size) }
+        .accessibilityAction { playAccessibly(in: characterSize) }
         .accessibilityAction(named: "character.action.squeeze") {
-          playAccessibly(in: proxy.size)
+          playAccessibly(in: characterSize)
         }
-        .accessibilityAction(named: "character.action.left") { playAccessibly(in: proxy.size, point: .init(x: 0.2, y: 0.5)) }
-        .accessibilityAction(named: "character.action.right") { playAccessibly(in: proxy.size, point: .init(x: 0.8, y: 0.5)) }
-        .accessibilityAction(named: "character.action.top") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.2)) }
-        .accessibilityAction(named: "character.action.bottom") { playAccessibly(in: proxy.size, point: .init(x: 0.5, y: 0.8)) }
+        .accessibilityAction(named: "character.action.left") { playAccessibly(in: characterSize, point: .init(x: 0.2, y: 0.5)) }
+        .accessibilityAction(named: "character.action.right") { playAccessibly(in: characterSize, point: .init(x: 0.8, y: 0.5)) }
+        .accessibilityAction(named: "character.action.top") { playAccessibly(in: characterSize, point: .init(x: 0.5, y: 0.2)) }
+        .accessibilityAction(named: "character.action.bottom") { playAccessibly(in: characterSize, point: .init(x: 0.5, y: 0.8)) }
+        .rotationEffect(.degrees(pose.rotationDegrees))
+        .offset(x: side * pose.x, y: side * pose.y)
+        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.47)
+        .frame(width: proxy.size.width, height: proxy.size.height)
       }
-
-      Button { present(.tasks) } label: {
-        Label(tasks.tasks.first?.label ?? "작업 보기", systemImage: "bubble.left")
-          .font(.caption2).lineLimit(1)
-      }
-      .buttonStyle(.plain)
-      .accessibilityIdentifier("home.tasks")
-      .disabled(!isForeground)
-      .padding(.vertical, 4)
-
-      HStack {
-        Button {
-          present(.help)
-        } label: {
-          Image(systemName: "questionmark.circle")
-            .frame(minWidth: 44, minHeight: 44)
-        }
-        .accessibilityLabel("help.title")
-
-        Spacer(minLength: 0)
-
-        Button { present(.characters) } label: {
-          Image(systemName: "person.crop.square").frame(minWidth: 44, minHeight: 44)
-        }
-        .accessibilityLabel("library.title")
-
-        Spacer(minLength: 0)
-
-        Button {
-          present(.settings)
-        } label: {
-          Image(systemName: "gearshape")
-            .frame(minWidth: 44, minHeight: 44)
-        }
-        .accessibilityLabel("settings.title")
-      }
-      .font(.body)
-      .buttonStyle(.plain)
-      .padding(.horizontal, 8)
-      .disabled(!isForeground)
-      .opacity(isLuminanceReduced ? 0 : 1)
-      .accessibilityHidden(isLuminanceReduced)
     }
+    .ignoresSafeArea()
     .background {
-      LinearGradient(
-        colors: [
-          Color(red: 0.08, green: 0.06, blue: 0.16), Color(red: 0.03, green: 0.02, blue: 0.08),
-        ],
-        startPoint: .top,
-        endPoint: .bottom
-      )
-      .ignoresSafeArea()
+      Color.black.ignoresSafeArea()
+      RadialGradient(colors: [Color(hex: library.selected.appearance.tint).opacity(0.13), .clear],
+                     center: .center, startRadius: 10, endRadius: 140).ignoresSafeArea()
+    }
+    .overlay(alignment: .bottom) {
+      homeControls
     }
     .preferredColorScheme(.dark)
     .sheet(item: $presentedSheet) { sheet in
@@ -138,6 +98,12 @@ struct ContentView: View {
         WatchLibraryView(library: library)
       case .tasks:
         TaskDashboard(connection: tasks, library: library)
+      case .menu:
+        DobooMenuView(name: library.selected.name,
+                      widgetSyncError: library.widgetSyncError,
+                      onCharacters: { present(.characters) },
+                      onSettings: { present(.settings) },
+                      onHelp: { present(.help) })
       }
     }
     .alert("library.errorTitle", isPresented: Binding(get: { library.errorMessage != nil }, set: { if !$0 { library.errorMessage = nil } })) {
@@ -145,6 +111,7 @@ struct ContentView: View {
     } message: { Text(library.errorMessage ?? "") }
     .task(id: scenePhase) {
       guard scenePhase == .active else { return }
+      library.refreshWidgetSnapshot()
       while !Task.isCancelled {
         if presentedSheet != .tasks { await tasks.refresh() }
         do { try await Task.sleep(for: .seconds(1)) } catch { return }
@@ -152,6 +119,12 @@ struct ContentView: View {
     }
     .onChange(of: library.selected.id) { _, _ in cancelInteraction() }
     .onChange(of: library.selected.version) { _, _ in cancelInteraction() }
+    .onOpenURL { url in
+      guard url.scheme == "doboo", url.host == "companion" else { return }
+      cancelInteraction()
+      library.refreshWidgetSnapshot(forceReload: true)
+      if hasSeenWelcome { presentedSheet = nil }
+    }
     .onAppear {
       if !hasSeenWelcome { present(.welcome) }
     }
@@ -169,21 +142,33 @@ struct ContentView: View {
     }
   }
 
-  private var ambientDots: some View {
-    GeometryReader { proxy in
-      ZStack {
-        Circle().fill(.white.opacity(0.18)).frame(width: 3)
-          .position(x: proxy.size.width * 0.14, y: proxy.size.height * 0.17)
-        Circle().fill(.white.opacity(0.12)).frame(width: 2)
-          .position(x: proxy.size.width * 0.83, y: proxy.size.height * 0.29)
-        Circle().fill(.white.opacity(0.10)).frame(width: 4)
-          .position(x: proxy.size.width * 0.87, y: proxy.size.height * 0.83)
-        Circle().fill(.white.opacity(0.08)).frame(width: 3)
-          .position(x: proxy.size.width * 0.16, y: proxy.size.height * 0.87)
+  private var homeControls: some View {
+    HStack {
+      Button { present(.tasks) } label: {
+        Image(systemName: "bubble.left.and.bubble.right")
+          .frame(width: 44, height: 44)
+          .background(.ultraThinMaterial, in: Circle())
       }
+      .accessibilityLabel("home.tasks")
+      .accessibilityIdentifier("home.tasks")
+
+      Spacer(minLength: 0)
+
+      Button { present(.menu) } label: {
+        Image(systemName: "ellipsis")
+          .frame(width: 44, height: 44)
+          .background(.ultraThinMaterial, in: Circle())
+      }
+      .accessibilityLabel("home.menu")
+      .accessibilityIdentifier("home.menu")
     }
-    .allowsHitTesting(false)
-    .accessibilityHidden(true)
+    .font(.system(size: 17, weight: .medium))
+    .buttonStyle(.plain)
+    .padding(.horizontal, 10)
+    .padding(.bottom, 2)
+    .disabled(!isForeground)
+    .opacity(isLuminanceReduced ? 0 : 1)
+    .accessibilityHidden(isLuminanceReduced)
   }
 
   private func blobGesture(in size: CGSize) -> some Gesture {
@@ -266,7 +251,7 @@ struct ContentView: View {
 }
 
 private enum DobooSheet: String, Identifiable {
-  case welcome, settings, help, characters, tasks
+  case welcome, settings, help, characters, tasks, menu
 
   var id: String { rawValue }
 }

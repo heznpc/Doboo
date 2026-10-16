@@ -1,5 +1,11 @@
 "app.name" = "Doboo";
 "character.name" = "Doboo";
+"home.tasks" = "View tasks";
+"home.menu" = "Characters and settings";
+"widget.syncError" = "Could not update the widget. Open Doboo again to retry.";
+"help.widgetTitle" = "See your companion at a glance";
+"help.widgetPlacement" = "Add Doboo as a complication when editing your watch face, or add the Doboo widget to your Smart Stack.";
+"help.widgetMotion" = "Widgets show a still pose of your selected character. Tap it to open the app, where your companion moves and responds to touch.";
 "character.state.pressed" = "Being squeezed";
 "character.state.resting" = "Resting";
 "character.hint" = "Double-tap to squeeze and release. Choose a direction from the Actions menu.";

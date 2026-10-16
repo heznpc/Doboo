@@ -6,6 +6,7 @@ struct DobooCharacterView: View {
   let phase: TimeInterval
   let motionEnabled: Bool
   var tint: Color = Color(red: 1.0, green: 0.55, blue: 0.38)
+  var idleGaze: CGPoint = .zero
 
   private var breath: CGFloat {
     motionEnabled ? CGFloat(sin(phase * 2.2)) : 0
@@ -84,8 +85,8 @@ struct DobooCharacterView: View {
 
   @ViewBuilder
   private func face(side: CGFloat, touch: CGPoint, pressure: CGFloat) -> some View {
-    let gazeX = touch.x * side * 0.012
-    let gazeY = touch.y * side * 0.010
+    let gazeX = interaction.isPressed ? touch.x * side * 0.012 : idleGaze.x * side * 0.025
+    let gazeY = interaction.isPressed ? touch.y * side * 0.010 : idleGaze.y * side * 0.020
     let eyeWidth = side * 0.075
     let baseEyeHeight = side * 0.105
 

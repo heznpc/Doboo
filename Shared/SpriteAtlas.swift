@@ -49,6 +49,7 @@ struct PackCharacterView: View {
   let phase: TimeInterval
   let motionEnabled: Bool
   var taskStatus: String? = nil
+  var idleGaze: CGPoint = .zero
   @State private var atlas: SpriteAtlas?
   @State private var failed = false
   @State private var releaseStart: TimeInterval?
@@ -64,7 +65,8 @@ struct PackCharacterView: View {
     Group {
       if pack.appearance.renderer == .nativeDoboo {
         DobooCharacterView(interaction: interaction, recoil: recoil, phase: phase,
-                           motionEnabled: motionEnabled, tint: Color(hex: pack.appearance.tint))
+                           motionEnabled: motionEnabled, tint: Color(hex: pack.appearance.tint),
+                           idleGaze: idleGaze)
       } else if let atlas {
         let frame = SpriteFrame.frame(layout: atlas.layout, elapsed: phase,
           touchX: interaction.touch.x, touchY: interaction.touch.y,

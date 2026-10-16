@@ -24,22 +24,63 @@ targets:
       - path: Characters
         type: folder
         buildPhase: resources
+    dependencies:
+      - target: DobooWidgets
+        embed: true
+    info:
+      path: WatchSupport/Info.plist
+      properties:
+        CFBundleDisplayName: Doboo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKWatchOnly: false
+        WKRunsIndependentlyOfCompanionApp: true
+        WKCompanionAppBundleIdentifier: app.doboo
+        ITSAppUsesNonExemptEncryption: false
+        CFBundleURLTypes:
+          - CFBundleURLName: app.doboo.watch
+            CFBundleURLSchemes:
+              - doboo
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.doboo.watchkitapp
         PRODUCT_NAME: Doboo
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Doboo
-        INFOPLIST_KEY_WKApplication: YES
-        INFOPLIST_KEY_WKWatchOnly: NO
-        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: YES
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: app.doboo
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        CODE_SIGN_ENTITLEMENTS: WatchSupport/Doboo.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
     scheme:
       testTargets:
         - DobooTests
+  DobooWidgets:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Widgets
+        excludes:
+          - Tests
+      - Shared/WatchWidgetSnapshot.swift
+      - Sources/Core/CharacterPack.swift
+      - Sources/Core/SpriteFrame.swift
+      - Sources/Core/BlobGeometry.swift
+      - Sources/Core/BlobInteractionState.swift
+      - Sources/DobooCharacterView.swift
+      - Sources/SoftBlobShape.swift
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: Doboo
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.doboo.watchkitapp.widgets
+        PRODUCT_NAME: DobooWidgets
+        CODE_SIGN_ENTITLEMENTS: Widgets/DobooWidgets.entitlements
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
   DobooLibrary:
     type: application
     platform: iOS

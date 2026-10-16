@@ -1,5 +1,11 @@
 "app.name" = "Doboo";
 "character.name" = "두부";
+"home.tasks" = "작업 보기";
+"home.menu" = "캐릭터와 설정";
+"widget.syncError" = "위젯을 갱신하지 못했습니다. 앱을 다시 열어 주세요.";
+"help.widgetTitle" = "앱을 열지 않고 보기";
+"help.widgetPlacement" = "시계 화면 편집에서 Doboo를 컴플리케이션으로 추가하거나, 스마트 스택에 Doboo 위젯을 추가하세요.";
+"help.widgetMotion" = "위젯에는 선택한 캐릭터의 멈춘 모습이 표시돼요. 위젯을 누르면 움직이고 만질 수 있는 앱 화면이 열려요.";
 "character.state.pressed" = "말랑하게 눌리는 중";
 "character.state.resting" = "편안히 쉬는 중";
 "character.hint" = "두 번 탭하면 눌렀다 놓습니다. 동작 메뉴에서 만질 방향을 고를 수 있습니다.";

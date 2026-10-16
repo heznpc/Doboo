@@ -1,5 +1,8 @@
 import Foundation
 import Observation
+#if os(watchOS)
+import WidgetKit
+#endif
 
 @MainActor @Observable
 final class CharacterLibrary {
@@ -7,9 +10,14 @@ final class CharacterLibrary {
   private(set) var selected: CharacterPack = .builtin
   var errorMessage: String?
   var notice: String?
+  var widgetSyncError: String?
   var transferStatus = String(localized: "transfer.idle")
   @ObservationIgnored private var store: CharacterStore?
   @ObservationIgnored private(set) var transfer: CharacterTransfer?
+  #if os(watchOS)
+  @ObservationIgnored private var widgetSnapshotPack: CharacterPack?
+  @ObservationIgnored private var widgetSnapshot: WatchWidgetSnapshot?
+  #endif
 
   init(directory: URL? = nil) {
     do {
@@ -21,6 +29,7 @@ final class CharacterLibrary {
       refresh()
     } catch {
       errorMessage = CharacterPackError.storageUnavailable.localizedDescription
+      refreshWidgetSnapshot()
     }
   }
 
@@ -79,6 +88,31 @@ final class CharacterLibrary {
     guard let store else { return }
     packs = store.packs
     selected = store.selected
+    refreshWidgetSnapshot()
+  }
+
+  func refreshWidgetSnapshot(forceReload: Bool = false) {
+    #if os(watchOS)
+    let snapshot: WatchWidgetSnapshot
+    if widgetSnapshotPack == selected, let cached = widgetSnapshot {
+      snapshot = cached
+    } else {
+      snapshot = (try? WatchWidgetSnapshot.make(for: selected)) ?? .unavailable
+      if !snapshot.needsSync {
+        widgetSnapshotPack = selected
+        widgetSnapshot = snapshot
+      }
+    }
+    do {
+      let changed = try WatchWidgetSnapshotStore.shared.save(snapshot)
+      if changed || (forceReload && !snapshot.needsSync) {
+        WidgetCenter.shared.reloadTimelines(ofKind: WatchWidgetSnapshot.widgetKind)
+      }
+      widgetSyncError = snapshot.needsSync ? String(localized: "widget.syncError") : nil
+    } catch {
+      widgetSyncError = String(localized: "widget.syncError")
+    }
+    #endif
   }
 
   #if DEBUG

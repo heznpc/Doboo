@@ -1,0 +1,5 @@
+"widget.name" = "Doboo 친구";
+"widget.description" = "Watch에서 선택한 캐릭터를 시계 페이스와 스마트 스택에서 만나 보세요.";
+"widget.openCompanion" = "눌러서 함께 쉬어요";
+"widget.openToSync" = "앱을 열어 동기화해 주세요";
+"widget.fallback" = "기본 Doboo를 표시하고 있습니다. 앱을 열어 캐릭터를 동기화해 주세요.";
