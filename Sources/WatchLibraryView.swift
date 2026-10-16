@@ -31,7 +31,7 @@ private struct WatchCharacterDetail: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
-        PackCharacterView(pack: pack, interaction: .init(), phase: 0, motionEnabled: false)
+        PackCharacterView(pack: pack.watchRepresentation, interaction: .init(), phase: 0, motionEnabled: false)
           .frame(height: 110).frame(maxWidth: .infinity)
         Text(pack.name).font(.headline)
         Text(pack.description).font(.caption)

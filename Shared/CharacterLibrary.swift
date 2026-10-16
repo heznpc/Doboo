@@ -94,7 +94,9 @@ final class CharacterLibrary {
   func refreshWidgetSnapshot(forceReload: Bool = false) {
     #if os(watchOS)
     let snapshot: WatchWidgetSnapshot
-    if widgetSnapshotPack == selected, let cached = widgetSnapshot {
+    if store == nil {
+      snapshot = .unavailable
+    } else if widgetSnapshotPack == selected, let cached = widgetSnapshot {
       snapshot = cached
     } else {
       snapshot = (try? WatchWidgetSnapshot.make(for: selected)) ?? .unavailable

@@ -76,7 +76,7 @@ struct ContentView: View {
     .ignoresSafeArea()
     .background {
       Color.black.ignoresSafeArea()
-      RadialGradient(colors: [Color(hex: library.selected.appearance.tint).opacity(0.13), .clear],
+      RadialGradient(colors: [Color(hex: library.selected.watchRepresentation.appearance.tint).opacity(0.13), .clear],
                      center: .center, startRadius: 10, endRadius: 140).ignoresSafeArea()
     }
     .overlay(alignment: .bottom) {

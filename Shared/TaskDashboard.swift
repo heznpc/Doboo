@@ -5,8 +5,20 @@ struct TaskDashboard: View {
   @Bindable var library: CharacterLibrary
   @Environment(\.scenePhase) private var scenePhase
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  #if os(watchOS)
+  @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+  @AppStorage("doboo.motionEnabled") private var motionEnabled = true
+  #endif
   @State private var showConnection = false
   @State private var showForgetPending = false
+
+  private var canAnimate: Bool {
+    #if os(watchOS)
+    motionEnabled && !reduceMotion && !isLuminanceReduced && !showConnection && scenePhase == .active
+    #else
+    !reduceMotion && scenePhase == .active
+    #endif
+  }
 
   private func displayPack(_ pack: CharacterPack) -> CharacterPack {
     #if os(watchOS)
@@ -23,10 +35,10 @@ struct TaskDashboard: View {
           let current = connection.tasks.first
           let character = current.map { task in library.packs.first { $0.id == task.character.id && $0.version == task.character.version } } ?? library.selected
           HStack {
-            TimelineView(.animation(minimumInterval: 0.15, paused: reduceMotion || scenePhase != .active)) { time in
+            TimelineView(.animation(minimumInterval: 0.15, paused: !canAnimate)) { time in
               if let character {
-              PackCharacterView(pack: displayPack(character), interaction: BlobInteractionState(), phase: time.date.timeIntervalSinceReferenceDate,
-                motionEnabled: !reduceMotion && scenePhase == .active, taskStatus: current?.status)
+              PackCharacterView(pack: displayPack(character), interaction: BlobInteractionState(), phase: canAnimate ? time.date.timeIntervalSinceReferenceDate : 0,
+                motionEnabled: canAnimate, taskStatus: current?.status)
                 .frame(width: 64, height: 70)
                 .opacity(current?.status == "interrupted" ? 0.55 : 1)
               } else { Image(systemName: "person.crop.circle.badge.questionmark").frame(width: 64, height: 70).accessibilityLabel("이 버전의 캐릭터를 가져와 주세요") }
@@ -113,14 +125,7 @@ struct TaskDashboard: View {
       .font(.caption)
       #endif
       .sheet(isPresented: $showConnection) {
-        NavigationStack {
-          Form {
-            TextField("컴퓨터 주소", text: $connection.address).textContentType(.URL)
-            SecureField("연결 키", text: $connection.connectionToken)
-            Button("연결") { Task { if await connection.connect() { showConnection = false } } }
-            if let error = connection.error { Text(error).foregroundStyle(.red) }
-          }.navigationTitle("컴퓨터 연결")
-        }
+        ComputerConnectionForm(connection: connection)
       }
       .task(id: scenePhase) {
         guard scenePhase == .active else { return }
@@ -130,5 +135,60 @@ struct TaskDashboard: View {
         }
       }
     }
+  }
+}
+
+private struct ComputerConnectionForm: View {
+  @Bindable var connection: TaskConnection
+  @Environment(\.dismiss) private var dismiss
+  @Environment(\.scenePhase) private var scenePhase
+  @State private var connectionTask: Task<Void, Never>?
+  @State private var attemptID: UUID?
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        TextField("컴퓨터 주소", text: $connection.address).textContentType(.URL)
+          .disabled(connectionTask != nil)
+        SecureField("연결 키", text: $connection.connectionToken)
+          .disabled(connectionTask != nil)
+        Button("연결", action: connect)
+          .disabled(connectionTask != nil || scenePhase != .active)
+        if connectionTask != nil { ProgressView() }
+        if let error = connection.error { Text(error).foregroundStyle(.red) }
+      }
+      .navigationTitle("컴퓨터 연결")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("common.close") {
+            cancelConnection()
+            dismiss()
+          }
+        }
+      }
+    }
+    .onDisappear { cancelConnection() }
+    .onChange(of: scenePhase) { _, phase in
+      if phase != .active { cancelConnection() }
+    }
+  }
+
+  private func connect() {
+    guard connectionTask == nil, scenePhase == .active else { return }
+    let id = UUID()
+    attemptID = id
+    connectionTask = Task { @MainActor in
+      let connected = await connection.connect()
+      guard !Task.isCancelled, attemptID == id else { return }
+      connectionTask = nil
+      attemptID = nil
+      if connected { dismiss() }
+    }
+  }
+
+  private func cancelConnection() {
+    attemptID = nil
+    connectionTask?.cancel()
+    connectionTask = nil
   }
 }

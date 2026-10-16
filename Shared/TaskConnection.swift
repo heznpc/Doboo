@@ -27,8 +27,10 @@ final class TaskConnection {
   private var pendingRecordUnreadable = false
   private var connectionAttempt = UUID()
   private var acknowledged: [String: Int] = [:]
-  private let credentialAccount = "doboo.computer.connection"
+  private static let credentialAccount = "doboo.computer.connection"
   private let storage: URL
+  @ObservationIgnored private let session: URLSession
+  @ObservationIgnored private let persistCredential: @MainActor (ComputerConnection) throws -> Void
   private struct ListResponse: Decodable { let project: String; let tasks: [CompanionTask] }
   private struct Failure: Decodable { let error: String; let submissionRejected: Bool? }
   private struct RequestFailure: LocalizedError {
@@ -40,6 +42,8 @@ final class TaskConnection {
   }
 
   init() {
+    session = .shared
+    persistCredential = Self.saveCredential
     storage = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DobooTasks")
     try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
     if let data = try? Data(contentsOf: storage.appendingPathComponent("tasks.json")) { tasks = (try? JSONDecoder().decode([CompanionTask].self, from: data)) ?? [] }
@@ -49,7 +53,7 @@ final class TaskConnection {
       catch { pendingRecordUnreadable = true }
     }
     var result: CFTypeRef?
-    let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: credentialAccount,
+    let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.credentialAccount,
       kSecAttrAccount as String: "computer", kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
     if SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data {
       connection = try? JSONDecoder().decode(ComputerConnection.self, from: data)
@@ -60,7 +64,7 @@ final class TaskConnection {
     if let data = try? Data(contentsOf: file), let value = try? JSONDecoder().decode(ComputerConnection.self, from: data) {
       // SwiftUI may create more than one initial State value. Keep the simulator-only
       // bootstrap available when unsigned simulator builds cannot use Keychain.
-      connection = value; try? saveCredential(value)
+      connection = value; try? persistCredential(value)
     }
     #endif
     address = connection?.url ?? ""
@@ -68,12 +72,20 @@ final class TaskConnection {
     prompt = pending?.submission.prompt ?? ""
   }
 
+  // Host-only regression tests provide isolated transport and credential storage.
+  init(storage: URL, session: URLSession,
+       persistCredential: @escaping @MainActor (ComputerConnection) throws -> Void) {
+    self.storage = storage
+    self.session = session
+    self.persistCredential = persistCredential
+  }
+
   var hasConnection: Bool { connection != nil }
   var canSubmit: Bool { connected && !submitting && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
   var pendingRetry: Bool { pending != nil || pendingRecordUnreadable }
   private var endpoint: TaskEndpointIdentity? { connection.flatMap { TaskEndpointIdentity(url: $0.url, token: $0.token) } }
 
-  private func saveCredential(_ value: ComputerConnection) throws {
+  private static func saveCredential(_ value: ComputerConnection) throws {
     let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: credentialAccount, kSecAttrAccount as String: "computer"]
     let data = try JSONEncoder().encode(value)
     let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
@@ -85,8 +97,10 @@ final class TaskConnection {
   }
 
   @discardableResult func connect() async -> Bool {
+    guard !Task.isCancelled else { return false }
     operationError = nil
     let attempt = UUID(); connectionAttempt = attempt
+    let requestedAddress = address, requestedToken = connectionToken
     guard !submitting else { operationError = "요청 접수를 확인한 뒤 연결을 변경해 주세요."; return false }
     guard let candidate = TaskEndpointIdentity(url: address, token: connectionToken) else {
       operationError = "HTTPS 주소와 연결 키를 확인해 주세요. 시뮬레이터에서는 localhost도 허용합니다."; return false
@@ -95,19 +109,22 @@ final class TaskConnection {
     let value = ComputerConnection(url: candidate.url, token: connectionToken)
     do {
       let list: ListResponse = try await request("/v1/tasks", using: value)
-      guard connectionAttempt == attempt else { return false }
+      guard !Task.isCancelled, connectionAttempt == attempt,
+        address == requestedAddress, connectionToken == requestedToken else { return false }
       // A submission can start while this connection check is awaiting its reply.
       guard !submitting, permitsConnection(to: candidate) else {
         operationError = "접수를 확인하지 못한 요청이 있습니다. 원래 컴퓨터에서 확인한 뒤 연결을 변경해 주세요."; return false
       }
-      try saveCredential(value)
-      connection = value; address = value.url
+      try persistCredential(value)
+      connection = value
       tasks = list.tasks; project = list.project; connected = true; refreshError = nil; acknowledged = [:]
       try reconcileListedTask()
+      address = value.url
       operationError = nil
       return true
     } catch {
-      guard connectionAttempt == attempt else { return false }
+      guard !Task.isCancelled, connectionAttempt == attempt,
+        address == requestedAddress, connectionToken == requestedToken else { return false }
       operationError = error.localizedDescription; return false
     }
   }
@@ -122,7 +139,7 @@ final class TaskConnection {
     var request = URLRequest(url: url); request.timeoutInterval = 12
     request.setValue("Bearer \(connection.token)", forHTTPHeaderField: "Authorization")
     if let body { request.httpMethod = "POST"; request.httpBody = body; request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await session.data(for: request)
     guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
     guard http.statusCode == 200 else {
       let failure = try? JSONDecoder().decode(Failure.self, from: data)
