@@ -162,7 +162,9 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
           let bytes = try JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])
           try bytes.write(to: receipts.appendingPathComponent("\(expected.characterID)-v\(expected.version).json"), options: .atomic)
         } catch { self.library?.errorMessage = error.localizedDescription; return }
-        self.library?.transferStatus = String(localized: "transfer.delivered")
+        self.library?.transferStatus = selected
+          ? String(localized: "transfer.deliveredSelected")
+          : String(localized: "transfer.delivered")
       } else {
         self.library?.transferStatus = String(localized: "transfer.rejected") + " " + (reason ?? "")
       }

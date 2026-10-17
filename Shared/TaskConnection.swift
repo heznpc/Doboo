@@ -18,6 +18,11 @@ final class TaskConnection {
   private var operationError: String?
   private var refreshError: String?
   var connected = false
+  private(set) var lastSuccessfulRefreshAt: Date?
+  private var liveStatusValid = false
+  private var isSceneActive = false
+  private var statusGeneration = UUID()
+  private var refreshID: UUID?
   var submitting = false
   var address = ""
   var connectionToken = ""
@@ -31,7 +36,9 @@ final class TaskConnection {
   private let storage: URL
   @ObservationIgnored private let session: URLSession
   @ObservationIgnored private let persistCredential: @MainActor (ComputerConnection) throws -> Void
+  @ObservationIgnored private let now: @MainActor () -> Date
   private struct ListResponse: Decodable { let project: String; let tasks: [CompanionTask] }
+  private struct TaskCache: Codable { let project: String; let tasks: [CompanionTask]; let checkedAt: Date }
   private struct Failure: Decodable { let error: String; let submissionRejected: Bool? }
   private struct RequestFailure: LocalizedError {
     let status: Int
@@ -44,9 +51,10 @@ final class TaskConnection {
   init() {
     session = .shared
     persistCredential = Self.saveCredential
+    now = Date.init
     storage = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DobooTasks")
     try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
-    if let data = try? Data(contentsOf: storage.appendingPathComponent("tasks.json")) { tasks = (try? JSONDecoder().decode([CompanionTask].self, from: data)) ?? [] }
+    loadTaskCache()
     let pendingFile = storage.appendingPathComponent("pending.json")
     if FileManager.default.fileExists(atPath: pendingFile.path) {
       do { pending = try JSONDecoder().decode(PendingTaskSubmission.self, from: Data(contentsOf: pendingFile)) }
@@ -74,16 +82,61 @@ final class TaskConnection {
 
   // Host-only regression tests provide isolated transport and credential storage.
   init(storage: URL, session: URLSession,
-       persistCredential: @escaping @MainActor (ComputerConnection) throws -> Void) {
+       persistCredential: @escaping @MainActor (ComputerConnection) throws -> Void,
+       now: @escaping @MainActor () -> Date = Date.init) {
     self.storage = storage
     self.session = session
     self.persistCredential = persistCredential
+    self.now = now
+    loadTaskCache()
   }
 
   var hasConnection: Bool { connection != nil }
-  var canSubmit: Bool { connected && !submitting && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
+  var hasFreshStatus: Bool {
+    guard liveStatusValid, let lastSuccessfulRefreshAt else { return false }
+    let age = now().timeIntervalSince(lastSuccessfulRefreshAt)
+    return age >= 0 && age < 15
+  }
+  var canSubmit: Bool { hasFreshStatus && connected && !submitting && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
   var pendingRetry: Bool { pending != nil || pendingRecordUnreadable }
   private var endpoint: TaskEndpointIdentity? { connection.flatMap { TaskEndpointIdentity(url: $0.url, token: $0.token) } }
+
+  func setSceneActive(_ active: Bool) {
+    guard isSceneActive != active else { return }
+    isSceneActive = active
+    invalidateLiveStatus()
+  }
+
+  /// A cached task remains useful, but cannot claim to be current after leaving
+  /// the app. An older in-flight response must not revive the previous session.
+  func invalidateLiveStatus() {
+    statusGeneration = UUID()
+    refreshID = nil
+    liveStatusValid = false
+    connected = false
+  }
+
+  private func recordSuccessfulRefresh() {
+    lastSuccessfulRefreshAt = now()
+    liveStatusValid = isSceneActive
+    connected = isSceneActive
+  }
+
+  private func loadTaskCache() {
+    if let data = try? Data(contentsOf: storage.appendingPathComponent("task-cache.json")),
+      let cache = try? JSONDecoder().decode(TaskCache.self, from: data) {
+      tasks = cache.tasks; project = cache.project; lastSuccessfulRefreshAt = cache.checkedAt
+    } else if let data = try? Data(contentsOf: storage.appendingPathComponent("tasks.json")) {
+      tasks = (try? JSONDecoder().decode([CompanionTask].self, from: data)) ?? []
+    }
+  }
+
+  private func saveTaskCache() throws {
+    guard let checkedAt = lastSuccessfulRefreshAt else { return }
+    try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+    try JSONEncoder().encode(TaskCache(project: project, tasks: tasks, checkedAt: checkedAt))
+      .write(to: storage.appendingPathComponent("task-cache.json"), options: .atomic)
+  }
 
   private static func saveCredential(_ value: ComputerConnection) throws {
     let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: credentialAccount, kSecAttrAccount as String: "computer"]
@@ -97,9 +150,11 @@ final class TaskConnection {
   }
 
   @discardableResult func connect() async -> Bool {
-    guard !Task.isCancelled else { return false }
+    guard !Task.isCancelled, isSceneActive else { return false }
     operationError = nil
+    invalidateLiveStatus()
     let attempt = UUID(); connectionAttempt = attempt
+    let generation = statusGeneration
     let requestedAddress = address, requestedToken = connectionToken
     guard !submitting else { operationError = "요청 접수를 확인한 뒤 연결을 변경해 주세요."; return false }
     guard let candidate = TaskEndpointIdentity(url: address, token: connectionToken) else {
@@ -109,7 +164,7 @@ final class TaskConnection {
     let value = ComputerConnection(url: candidate.url, token: connectionToken)
     do {
       let list: ListResponse = try await request("/v1/tasks", using: value)
-      guard !Task.isCancelled, connectionAttempt == attempt,
+      guard !Task.isCancelled, connectionAttempt == attempt, statusGeneration == generation,
         address == requestedAddress, connectionToken == requestedToken else { return false }
       // A submission can start while this connection check is awaiting its reply.
       guard !submitting, permitsConnection(to: candidate) else {
@@ -117,14 +172,17 @@ final class TaskConnection {
       }
       try persistCredential(value)
       connection = value
-      tasks = list.tasks; project = list.project; connected = true; refreshError = nil; acknowledged = [:]
+      tasks = list.tasks; project = list.project; refreshError = nil; acknowledged = [:]
+      recordSuccessfulRefresh()
+      try saveTaskCache()
       try reconcileListedTask()
       address = value.url
       operationError = nil
       return true
     } catch {
-      guard !Task.isCancelled, connectionAttempt == attempt,
+      guard !Task.isCancelled, connectionAttempt == attempt, statusGeneration == generation,
         address == requestedAddress, connectionToken == requestedToken else { return false }
+      liveStatusValid = false; connected = false
       operationError = error.localizedDescription; return false
     }
   }
@@ -149,18 +207,22 @@ final class TaskConnection {
   }
 
   func refresh() async {
-    guard let current = connection, let origin = endpoint else { return }
+    guard isSceneActive, refreshID == nil, let current = connection, let origin = endpoint else { return }
+    let id = UUID(), generation = statusGeneration
+    refreshID = id
+    defer { if refreshID == id { refreshID = nil } }
     do {
       let list: ListResponse = try await request("/v1/tasks", using: current)
-      guard endpoint == origin else { return }
+      guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
       #if os(watchOS)
       if let latest = list.tasks.first, let old = tasks.first(where: { $0.id == latest.id }), latest.status != old.status {
         if latest.status == "completed" { WKInterfaceDevice.current().play(.success) }
         if latest.status == "needsApproval" || latest.status == "failed" { WKInterfaceDevice.current().play(.notification) }
       }
       #endif
-      tasks = list.tasks; project = list.project; connected = true; refreshError = nil
-      try JSONEncoder().encode(tasks).write(to: storage.appendingPathComponent("tasks.json"), options: .atomic)
+      tasks = list.tasks; project = list.project; refreshError = nil
+      recordSuccessfulRefresh()
+      try saveTaskCache()
       try reconcileListedTask()
       for task in tasks.prefix(1) where acknowledged[task.id] != task.sequence {
         #if os(watchOS)
@@ -169,13 +231,20 @@ final class TaskConnection {
         let surface = "phone"
         #endif
         let body = try JSONSerialization.data(withJSONObject: ["surface": surface, "sequence": task.sequence])
-        let _: [String: Bool] = try await request("/v1/tasks/\(task.id)/receipt", body: body, using: current)
-        guard endpoint == origin else { return }
-        acknowledged[task.id] = task.sequence
+        do {
+          let _: [String: Bool] = try await request("/v1/tasks/\(task.id)/receipt", body: body, using: current)
+          guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
+          acknowledged[task.id] = task.sequence
+        } catch {
+          // Output can advance the server's sequence between GET and receipt.
+          // A failed receipt is retried next poll; it cannot erase the successful
+          // status check above or claim that its delivery was acknowledged.
+          guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
+        }
       }
     } catch {
-      guard endpoint == origin else { return }
-      refreshError = error.localizedDescription; connected = false
+      guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
+      refreshError = error.localizedDescription; connected = false; liveStatusValid = false
     }
   }
 
@@ -213,6 +282,7 @@ final class TaskConnection {
       guard pending.submission.matches(task) else { throw URLError(.badServerResponse) }
       if self.pending == pending { try resolvePending(restoringPrompt: false) }
       operationError = nil
+      invalidateLiveStatus()
       await refresh()
     } catch let failure as RequestFailure where pending.origin != nil && failure.isDefinitiveRejection {
       guard self.pending == pending else { return }
@@ -256,17 +326,35 @@ final class TaskConnection {
 
   func cancel(_ task: CompanionTask) async {
     operationError = nil
+    guard let current = currentActionTarget(task), ["queued", "running", "needsApproval"].contains(current.status) else {
+      operationError = String(localized: "task.actionNeedsRefresh")
+      return
+    }
     do {
       let _: CompanionTask = try await request("/v1/tasks/\(task.id)/cancel", body: Data("{}".utf8))
-      operationError = nil; await refresh()
+      operationError = nil; invalidateLiveStatus(); await refresh()
     } catch { operationError = error.localizedDescription }
   }
   func approve(_ task: CompanionTask, approval: CompanionTask.Approval, accept: Bool) async {
     operationError = nil
+    guard let current = currentActionTarget(task), current.status == "needsApproval",
+      current.approvals.contains(approval) else {
+      operationError = String(localized: "task.actionNeedsRefresh")
+      return
+    }
     do {
       let body = try JSONSerialization.data(withJSONObject: ["id": approval.id, "decision": accept ? "accept" : "decline"])
       let _: CompanionTask = try await request("/v1/tasks/\(task.id)/approval", body: body)
-      operationError = nil; await refresh()
+      operationError = nil; invalidateLiveStatus(); await refresh()
     } catch { operationError = error.localizedDescription }
+  }
+
+  private func currentActionTarget(_ task: CompanionTask) -> CompanionTask? {
+    guard isSceneActive, hasFreshStatus,
+      let current = tasks.first(where: { $0.id == task.id }),
+      !current.finished, current.sequence >= task.sequence,
+      current.prompt == task.prompt, current.character == task.character,
+      current.project == task.project else { return nil }
+    return current
   }
 }

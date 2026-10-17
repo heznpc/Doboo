@@ -29,6 +29,29 @@ struct CompanionTask: Codable, Identifiable, Equatable, Sendable {
   let approvals: [Approval]
   let commands: [Command]
   var finished: Bool { ["completed", "failed", "interrupted"].contains(status) }
+  var statusKey: String {
+    switch status {
+    case "queued", "running", "completed", "failed", "interrupted": "task.status.\(status)"
+    case "needsApproval": "task.status.approval"
+    default: "task.status.unknown"
+    }
+  }
+  var nextActionKey: String {
+    switch status {
+    case "queued", "running", "completed", "failed", "interrupted": "task.next.\(status)"
+    case "needsApproval": "task.next.approval"
+    default: "task.next.unknown"
+    }
+  }
+  var statusSymbol: String {
+    switch status {
+    case "completed": "checkmark.circle"
+    case "needsApproval": "hand.raised"
+    case "failed": "exclamationmark.circle"
+    case "interrupted": "pause.circle"
+    default: "clock"
+    }
+  }
   var label: String {
     switch status {
     case "queued": "전송됨"

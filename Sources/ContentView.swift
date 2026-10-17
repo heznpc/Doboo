@@ -8,7 +8,7 @@ struct ContentView: View {
   @Environment(\.isLuminanceReduced) private var isLuminanceReduced
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-  @AppStorage("doboo.hasSeenWelcome") private var hasSeenWelcome = false
+  @AppStorage("doboo.hasTriedTouch") private var hasTriedTouch = false
   @AppStorage("doboo.hapticsEnabled") private var hapticsEnabled = true
   @AppStorage("doboo.motionEnabled") private var motionEnabled = true
 
@@ -69,7 +69,7 @@ struct ContentView: View {
         .accessibilityAction(named: "character.action.bottom") { playAccessibly(in: characterSize, point: .init(x: 0.5, y: 0.8)) }
         .rotationEffect(.degrees(pose.rotationDegrees))
         .offset(x: side * pose.x, y: side * pose.y)
-        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.47)
+        .position(x: proxy.size.width / 2, y: proxy.size.height * 0.43)
         .frame(width: proxy.size.width, height: proxy.size.height)
       }
     }
@@ -85,15 +85,12 @@ struct ContentView: View {
     .preferredColorScheme(.dark)
     .sheet(item: $presentedSheet) { sheet in
       switch sheet {
-      case .welcome:
-        DobooWelcomeView {
-          hasSeenWelcome = true
-          presentedSheet = nil
-        }
       case .settings:
         DobooSettingsView(hapticsEnabled: $hapticsEnabled, motionEnabled: $motionEnabled)
       case .help:
         DobooHelpSheetView()
+      case .placement:
+        DobooPlacementView()
       case .characters:
         WatchLibraryView(library: library)
       case .tasks:
@@ -101,6 +98,7 @@ struct ContentView: View {
       case .menu:
         DobooMenuView(name: library.selected.name,
                       widgetSyncError: library.widgetSyncError,
+                      onPlacement: { present(.placement) },
                       onCharacters: { present(.characters) },
                       onSettings: { present(.settings) },
                       onHelp: { present(.help) })
@@ -110,12 +108,16 @@ struct ContentView: View {
       Button("common.ok", role: .cancel) { library.errorMessage = nil }
     } message: { Text(library.errorMessage ?? "") }
     .task(id: scenePhase) {
+      tasks.setSceneActive(scenePhase == .active)
       guard scenePhase == .active else { return }
       library.refreshWidgetSnapshot()
       while !Task.isCancelled {
         if presentedSheet != .tasks { await tasks.refresh() }
-        do { try await Task.sleep(for: .seconds(1)) } catch { return }
+        do { try await Task.sleep(for: .seconds(4)) } catch { return }
       }
+    }
+    .onChange(of: scenePhase) { _, phase in
+      tasks.setSceneActive(phase == .active)
     }
     .onChange(of: library.selected.id) { _, _ in cancelInteraction() }
     .onChange(of: library.selected.version) { _, _ in cancelInteraction() }
@@ -123,10 +125,7 @@ struct ContentView: View {
       guard url.scheme == "doboo", url.host == "companion" else { return }
       cancelInteraction()
       library.refreshWidgetSnapshot(forceReload: true)
-      if hasSeenWelcome { presentedSheet = nil }
-    }
-    .onAppear {
-      if !hasSeenWelcome { present(.welcome) }
+      presentedSheet = nil
     }
     .onDisappear { cancelInteraction() }
     .onChange(of: canInteract) { _, enabled in
@@ -143,24 +142,48 @@ struct ContentView: View {
   }
 
   private var homeControls: some View {
-    HStack {
-      Button { present(.tasks) } label: {
-        Image(systemName: "bubble.left.and.bubble.right")
-          .frame(width: 44, height: 44)
-          .background(.ultraThinMaterial, in: Circle())
+    VStack(spacing: 5) {
+      if !hasTriedTouch && tasks.tasks.isEmpty {
+        Text("home.touchHint")
+          .font(.caption2)
+          .foregroundStyle(.white)
+          .lineLimit(1)
+          .minimumScaleFactor(0.85)
+          .padding(.horizontal, 8)
+          .padding(.vertical, 4)
+          .background(.black.opacity(0.72), in: Capsule())
+          .allowsHitTesting(false)
+          .accessibilityIdentifier("home.touchHint")
       }
-      .accessibilityLabel("home.tasks")
-      .accessibilityIdentifier("home.tasks")
+      HStack(alignment: .bottom, spacing: 8) {
+        Button { present(.tasks) } label: {
+          VStack(alignment: .leading, spacing: 0) {
+            if let task = tasks.tasks.first {
+              TimelineView(.animation(minimumInterval: 1, paused: !isForeground)) { _ in
+                taskSummary(task)
+              }
+            } else {
+              Label("home.tasks.short", systemImage: "checklist")
+                .font(.caption.weight(.semibold))
+            }
+          }
+          .frame(maxWidth: tasks.tasks.isEmpty ? nil : .infinity, minHeight: 28, alignment: .leading)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 8)
+          .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .accessibilityIdentifier("home.tasks")
 
-      Spacer(minLength: 0)
+        if tasks.tasks.isEmpty { Spacer(minLength: 0) }
 
-      Button { present(.menu) } label: {
-        Image(systemName: "ellipsis")
-          .frame(width: 44, height: 44)
-          .background(.ultraThinMaterial, in: Circle())
+        Button { present(.menu) } label: {
+          Image(systemName: "ellipsis")
+            .frame(width: 44, height: 44)
+            .background(.ultraThinMaterial, in: Circle())
+        }
+        .accessibilityLabel("home.menu")
+        .accessibilityIdentifier("home.menu")
       }
-      .accessibilityLabel("home.menu")
-      .accessibilityIdentifier("home.menu")
     }
     .font(.system(size: 17, weight: .medium))
     .buttonStyle(.plain)
@@ -169,6 +192,42 @@ struct ContentView: View {
     .disabled(!isForeground)
     .opacity(isLuminanceReduced ? 0 : 1)
     .accessibilityHidden(isLuminanceReduced)
+  }
+
+  private func taskSummary(_ task: CompanionTask) -> some View {
+    let fresh = tasks.hasFreshStatus
+    let actionKey = fresh ? task.nextActionKey : "home.tasks.saved"
+    let statusKey = fresh ? compactTaskStatusKey(task.status) : "home.tasks.saved"
+    return VStack(alignment: .leading, spacing: 3) {
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 5) {
+          Image(systemName: "checklist")
+            .accessibilityHidden(true)
+          Text(LocalizedStringKey(actionKey))
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        Text(LocalizedStringKey(actionKey))
+          .fixedSize(horizontal: true, vertical: false)
+        Text(LocalizedStringKey(statusKey))
+          .lineLimit(1)
+          .minimumScaleFactor(0.85)
+      }
+      .fontWeight(.semibold)
+      .foregroundStyle(.primary)
+      .accessibilityLabel(Text(LocalizedStringKey(actionKey)))
+      Text(task.prompt)
+        .foregroundStyle(.secondary)
+        .lineLimit(1)
+    }
+    .font(.caption2)
+  }
+
+  private func compactTaskStatusKey(_ status: String) -> String {
+    switch status {
+    case "queued", "running", "needsApproval", "completed", "failed", "interrupted":
+      "home.task.\(status)"
+    default: "home.task.unknown"
+    }
   }
 
   private func blobGesture(in size: CGSize) -> some Gesture {
@@ -202,6 +261,7 @@ struct ContentView: View {
   private func releaseInteraction() {
     guard interaction.isPressed else { return }
     interaction.release()
+    hasTriedTouch = true
     hasPlayedPressHaptic = false
     playHaptic(.directionUp)
   }
@@ -251,7 +311,7 @@ struct ContentView: View {
 }
 
 private enum DobooSheet: String, Identifiable {
-  case welcome, settings, help, characters, tasks, menu
+  case settings, help, placement, characters, tasks, menu
 
   var id: String { rawValue }
 }

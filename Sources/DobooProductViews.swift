@@ -3,6 +3,7 @@ import SwiftUI
 struct DobooMenuView: View {
   let name: String
   let widgetSyncError: String?
+  let onPlacement: () -> Void
   let onCharacters: () -> Void
   let onSettings: () -> Void
   let onHelp: () -> Void
@@ -11,9 +12,14 @@ struct DobooMenuView: View {
   var body: some View {
     NavigationStack {
       List {
+        Button(action: onPlacement) {
+          Label("placement.title", systemImage: "applewatch")
+        }
+        .accessibilityIdentifier("menu.placement")
         Button(action: onCharacters) {
           Label("library.title", systemImage: "person.crop.square")
         }
+        .accessibilityIdentifier("menu.characters")
         Button(action: onSettings) {
           Label("settings.title", systemImage: "gearshape")
         }
@@ -34,32 +40,32 @@ struct DobooMenuView: View {
   }
 }
 
-struct DobooWelcomeView: View {
-  let onStart: () -> Void
+struct DobooPlacementView: View {
+  @Environment(\.dismiss) private var dismiss
 
   var body: some View {
     NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("welcome.title")
-            .font(.title3.bold())
-            .accessibilityAddTraits(.isHeader)
-          Text("welcome.body")
-          Label("help.touch", systemImage: "hand.draw")
-          Label("help.release", systemImage: "sparkles")
-          Text("welcome.preferences")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-          Button("welcome.start", action: onStart)
-            .buttonStyle(.borderedProminent)
-            .frame(maxWidth: .infinity)
+      List {
+        Section("placement.face.title") {
+          Text("placement.face.body")
         }
-        .padding(.horizontal)
-        .padding(.bottom)
+        Section("placement.stack.title") {
+          Text("placement.stack.body")
+        }
+        Section {
+          Text("help.widgetMotion")
+            .foregroundStyle(.secondary)
+        }
       }
-      .navigationTitle("app.name")
+      .font(.caption)
+      .navigationTitle("placement.title")
+      .accessibilityIdentifier("placement.instructions")
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("common.close") { dismiss() }
+        }
+      }
     }
-    .interactiveDismissDisabled()
   }
 }
 

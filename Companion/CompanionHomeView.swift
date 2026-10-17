@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The companion remains the home. Work is something you ask it to do.
+/// The character stays on the home screen; computer tasks have a separate entry.
 struct CompanionHomeView: View {
   @Bindable var library: CharacterLibrary
   @Bindable var tasks: TaskConnection
@@ -17,13 +17,22 @@ struct CompanionHomeView: View {
           .frame(maxWidth: 520)
         Text("눌러 보고, 끌어 보고, 잠깐 같이 쉬어요.")
           .font(.subheadline).foregroundStyle(.secondary)
-        Button { showingTasks = true } label: {
-          Label(matchingTask.map { "부탁한 작업 · \($0.label)" } ?? "Doboo에게 부탁하기",
-                systemImage: "bubble.left.and.bubble.right")
-            .padding(.horizontal, 12).padding(.vertical, 4)
+        TimelineView(.animation(minimumInterval: 1, paused: scenePhase != .active)) { _ in
+          Button { showingTasks = true } label: {
+            Label {
+              VStack(spacing: 3) {
+                Text("task.homeComputer")
+                if let task = tasks.tasks.first {
+                  Text(LocalizedStringKey(tasks.hasFreshStatus ? task.statusKey : "task.status.saved"))
+                    .font(.caption)
+                }
+              }
+            } icon: { Image(systemName: "checklist") }
+              .padding(.horizontal, 12).padding(.vertical, 4)
+          }
+          .buttonStyle(.bordered).buttonBorderShape(.capsule)
+          .accessibilityIdentifier("home.tasks")
         }
-        .buttonStyle(.bordered).buttonBorderShape(.capsule)
-        .accessibilityIdentifier("home.tasks")
         Spacer(minLength: 12)
       }
       .padding(24)
@@ -38,17 +47,15 @@ struct CompanionHomeView: View {
         }
     }
     .task(id: scenePhase) {
+      tasks.setSceneActive(scenePhase == .active)
       guard scenePhase == .active else { return }
       while !Task.isCancelled {
         if !showingTasks { await tasks.refresh() }
-        do { try await Task.sleep(for: .seconds(1)) } catch { return }
+        do { try await Task.sleep(for: .seconds(4)) } catch { return }
       }
     }
-  }
-
-  private var matchingTask: CompanionTask? {
-    tasks.tasks.first.flatMap { task in
-      task.character.id == library.selected.id && task.character.version == library.selected.version ? task : nil
+    .onChange(of: scenePhase) { _, phase in
+      tasks.setSceneActive(phase == .active)
     }
   }
 }
