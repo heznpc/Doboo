@@ -28,6 +28,7 @@ struct CompanionTask: Codable, Identifiable, Equatable, Sendable {
   let turnId: String?
   let approvals: [Approval]
   let commands: [Command]
+  var continuity: TaskContinuity? = nil
   var finished: Bool { ["completed", "failed", "interrupted"].contains(status) }
   var statusKey: String {
     switch status {
@@ -63,4 +64,43 @@ struct CompanionTask: Codable, Identifiable, Equatable, Sendable {
     default: "상태 확인 필요"
     }
   }
+}
+
+/// Server-owned personality and explicit memory, independent of image variants.
+struct CompanionProfile: Codable, Equatable, Sendable {
+  let id: String
+  let version: Int64
+  let name: String
+  let identity: CharacterPack.Identity
+  let personality: CharacterPack.Personality
+
+  init(_ pack: CharacterPack) {
+    id = pack.id; version = pack.version; name = pack.name
+    identity = pack.identity; personality = pack.personality
+  }
+
+  var character: CompanionTask.Character { .init(id: id, version: version, name: name) }
+}
+
+struct CompanionContext: Codable, Equatable, Identifiable, Sendable {
+  let characterId: String
+  let profile: CompanionProfile
+  let profileDigest: String
+  let revision: Int
+  let memory: String
+  let generation: Int
+  let updatedAt: String
+  var id: String { characterId }
+}
+
+struct TaskContinuity: Codable, Equatable, Sendable {
+  let serverId: String
+  let conversationId: String
+  let parentTaskId: String?
+  let companionRevision: Int
+  let generation: Int
+  let profileDigest: String
+  let memoryApplied: Bool
+  let historyCount: Int
+  let historyTruncated: Bool
 }

@@ -109,4 +109,55 @@ struct TaskSubmissionTests {
     }
     #expect(TaskEndpointIdentity(url: "http://localhost:1234", token: token) != nil)
   }
+  @Test func continuityRetryRequiresExactServerRevisionAndParent() throws {
+    var request = submission("continue this conversation")
+    request.continuity = .init(serverId: "server-a", companionRevision: 3, parentTaskId: "previous-turn")
+    func task(server: String = "server-a", revision: Int = 3, parent: String? = "previous-turn") -> CompanionTask {
+      .init(id: request.id, prompt: request.prompt, character: request.character, project: "test", status: "completed",
+        sequence: 1, result: "result", activity: "", error: nil, threadId: nil, turnId: nil, approvals: [], commands: [],
+        continuity: .init(serverId: server, conversationId: "conversation", parentTaskId: parent,
+          companionRevision: revision, generation: 1, profileDigest: "digest", memoryApplied: true,
+          historyCount: 1, historyTruncated: false))
+    }
+    #expect(request.matches(task()))
+    #expect(!request.matches(task(server: "server-b")))
+    #expect(!request.matches(task(revision: 4)))
+    #expect(!request.matches(task(parent: nil)))
+    let pending = PendingTaskSubmission(submission: request,
+      origin: try #require(TaskEndpointIdentity(url: "https://computer.example", token: token)))
+    let restored = try JSONDecoder().decode(PendingTaskSubmission.self, from: JSONEncoder().encode(pending))
+    #expect(try restored.submission.encodedRequest() == request.encodedRequest())
+  }
+
+  @Test func presentationChangesDoNotChangeTheExecutionProfile() {
+    let original = CharacterPack.builtin
+    var changed = original
+    changed.appearance.tint = "#000000"
+    changed.description = "Different presentation"
+    #expect(CompanionProfile(original) == CompanionProfile(changed))
+    changed.identity.voice = "A distinct speaking style"
+    #expect(CompanionProfile(original) != CompanionProfile(changed))
+  }
+
+  @Test func onlyMatchingVerifiedWatchReceiptConfirmsSharing() {
+    let requestID = UUID().uuidString
+    let envelope = WatchConnectionEnvelope(requestId: requestID, url: "https://computer.example",
+      token: token, serverId: "server-a")
+    #expect(envelope.isValid)
+    #expect(WatchConnectionReceipt(requestId: requestID, serverId: "server-a",
+      url: envelope.url, saved: true).confirms(envelope))
+    for receipt in [
+      WatchConnectionReceipt(requestId: UUID().uuidString, serverId: "server-a", url: envelope.url, saved: true),
+      WatchConnectionReceipt(requestId: requestID, serverId: "server-b", url: envelope.url, saved: true),
+      WatchConnectionReceipt(requestId: requestID, serverId: "server-a", url: "https://other.example", saved: true),
+      WatchConnectionReceipt(requestId: requestID, serverId: "server-a", url: envelope.url, saved: false),
+    ] { #expect(!receipt.confirms(envelope)) }
+    #expect(!WatchConnectionEnvelope(requestId: requestID, url: "http://localhost:1234",
+      token: token, serverId: "server-a").isValid)
+    #expect(!WatchConnectionEnvelope(requestId: requestID, url: envelope.url,
+      token: token, serverId: "").isValid)
+    #expect(!WatchConnectionEnvelope(requestId: "invalid", url: envelope.url,
+      token: token, serverId: "server-a").isValid)
+  }
+
 }

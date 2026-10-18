@@ -215,7 +215,7 @@ struct ContentView: View {
       .fontWeight(.semibold)
       .foregroundStyle(.primary)
       .accessibilityLabel(Text(LocalizedStringKey(actionKey)))
-      Text(task.prompt)
+      Text(task.character.id == library.selected.id ? task.prompt : "\(task.character.name) · \(task.prompt)")
         .foregroundStyle(.secondary)
         .lineLimit(1)
     }

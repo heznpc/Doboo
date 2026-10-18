@@ -7,6 +7,7 @@ import CryptoKit
 @MainActor
 final class CharacterTransfer: NSObject, WCSessionDelegate {
   private weak var library: CharacterLibrary?
+  private weak var tasks: TaskConnection?
   private let session: WCSession?
   private var pendingID: String?
   private struct Pending: Codable {
@@ -25,6 +26,62 @@ final class CharacterTransfer: NSObject, WCSessionDelegate {
     session?.delegate = self
     session?.activate()
     if session == nil { library.transferStatus = String(localized: "transfer.unavailable") }
+  }
+
+  func attachConnection(_ connection: TaskConnection) {
+    tasks = connection
+    #if os(iOS)
+    connection.watchConnectionSender = { [weak self] envelope in
+      guard let self else { throw URLError(.networkConnectionLost) }
+      return try await self.sendConnection(envelope)
+    }
+    #endif
+  }
+
+  private func sendConnection(_ envelope: WatchConnectionEnvelope) async throws -> WatchConnectionReceipt {
+    guard let session, session.activationState == .activated, session.isReachable, envelope.isValid else {
+      throw URLError(.notConnectedToInternet)
+    }
+    let data = try JSONEncoder().encode(envelope)
+    // Reachability messages are deliberately used instead of queued transfers:
+    // an old secret must not replace a later connection after delayed delivery.
+    let receiptData: Data = try await withCheckedThrowingContinuation { continuation in
+      session.sendMessage(["dobooComputerConnection": data], replyHandler: { reply in
+        guard let data = reply["dobooComputerReceipt"] as? Data else {
+          continuation.resume(throwing: URLError(.badServerResponse)); return
+        }
+        continuation.resume(returning: data)
+      }, errorHandler: { error in continuation.resume(throwing: error) })
+    }
+    return try JSONDecoder().decode(WatchConnectionReceipt.self, from: receiptData)
+  }
+
+  nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any],
+                           replyHandler: @escaping ([String: Any]) -> Void) {
+    guard let data = message["dobooComputerConnection"] as? Data, data.count <= 8192,
+      let envelope = try? JSONDecoder().decode(WatchConnectionEnvelope.self, from: data), envelope.isValid else {
+      replyHandler(["rejected": true]); return
+    }
+    // WCSession invokes this delegate off the main actor. Wrap its one-shot
+    // callback so only immutable Sendable input crosses to the connection owner.
+    let reply = ConnectionReply(replyHandler)
+    Task { @MainActor [weak self] in
+      #if os(watchOS)
+      do {
+        guard let tasks = self?.tasks else { throw URLError(.notConnectedToInternet) }
+        let receipt = try await tasks.receiveWatchConnection(envelope)
+        reply.finish(["dobooComputerReceipt": try JSONEncoder().encode(receipt)])
+      } catch { reply.finish(["rejected": true]) }
+      #else
+      reply.finish(["rejected": true])
+      #endif
+    }
+  }
+
+  private final class ConnectionReply: @unchecked Sendable {
+    private let callback: ([String: Any]) -> Void
+    init(_ callback: @escaping ([String: Any]) -> Void) { self.callback = callback }
+    func finish(_ value: [String: Any]) { callback(value) }
   }
 
   func send(_ pack: CharacterPack, originalData: Data? = nil) {

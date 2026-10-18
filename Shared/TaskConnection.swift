@@ -8,11 +8,18 @@ import WatchKit
 struct ComputerConnection: Codable {
   var url: String
   var token: String
+  var serverId: String? = nil
 }
 
 @MainActor @Observable
 final class TaskConnection {
   var tasks: [CompanionTask] = []
+  private(set) var companions: [CompanionContext] = []
+  private(set) var serverId: String?
+  private(set) var savingCompanion = false
+  private(set) var isSendingWatchConnection = false
+  private(set) var watchConnectionStatus: String?
+  @ObservationIgnored var watchConnectionSender: (@MainActor (WatchConnectionEnvelope) async throws -> WatchConnectionReceipt)?
   var project = ""
   var error: String? { operationError ?? refreshError }
   private var operationError: String?
@@ -28,6 +35,7 @@ final class TaskConnection {
   var connectionToken = ""
   var prompt = ""
   private var connection: ComputerConnection?
+  private var cachedEndpoint: TaskEndpointIdentity?
   private var pending: PendingTaskSubmission?
   private var pendingRecordUnreadable = false
   private var connectionAttempt = UUID()
@@ -37,8 +45,20 @@ final class TaskConnection {
   @ObservationIgnored private let session: URLSession
   @ObservationIgnored private let persistCredential: @MainActor (ComputerConnection) throws -> Void
   @ObservationIgnored private let now: @MainActor () -> Date
-  private struct ListResponse: Decodable { let project: String; let tasks: [CompanionTask] }
-  private struct TaskCache: Codable { let project: String; let tasks: [CompanionTask]; let checkedAt: Date }
+  private struct ListResponse: Decodable {
+    let project: String
+    let tasks: [CompanionTask]
+    let serverId: String?
+    let companions: [CompanionContext]?
+  }
+  private struct TaskCache: Codable {
+    let project: String
+    let tasks: [CompanionTask]
+    let checkedAt: Date
+    var endpoint: TaskEndpointIdentity? = nil
+    var serverId: String? = nil
+    var companions: [CompanionContext]? = nil
+  }
   private struct Failure: Decodable { let error: String; let submissionRejected: Bool? }
   private struct RequestFailure: LocalizedError {
     let status: Int
@@ -55,11 +75,7 @@ final class TaskConnection {
     storage = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("DobooTasks")
     try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
     loadTaskCache()
-    let pendingFile = storage.appendingPathComponent("pending.json")
-    if FileManager.default.fileExists(atPath: pendingFile.path) {
-      do { pending = try JSONDecoder().decode(PendingTaskSubmission.self, from: Data(contentsOf: pendingFile)) }
-      catch { pendingRecordUnreadable = true }
-    }
+    loadPending()
     var result: CFTypeRef?
     let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.credentialAccount,
       kSecAttrAccount as String: "computer", kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
@@ -75,6 +91,9 @@ final class TaskConnection {
       connection = value; try? persistCredential(value)
     }
     #endif
+    if let cachedEndpoint, cachedEndpoint != endpoint {
+      tasks = []; companions = []; project = ""; serverId = nil; lastSuccessfulRefreshAt = nil
+    }
     address = connection?.url ?? ""
     connectionToken = connection?.token ?? ""
     prompt = pending?.submission.prompt ?? ""
@@ -89,15 +108,41 @@ final class TaskConnection {
     self.persistCredential = persistCredential
     self.now = now
     loadTaskCache()
+    loadPending()
   }
 
   var hasConnection: Bool { connection != nil }
+  var verifiedAddress: String? { connection?.url }
+  var supportsContinuity: Bool { serverId != nil && connection?.serverId == serverId }
+  var canSendWatchConnection: Bool {
+    hasFreshStatus && serverId != nil && !isSendingWatchConnection && watchConnectionSender != nil
+      && URL(string: connection?.url ?? "")?.scheme == "https"
+  }
+  func companion(for character: CharacterPack) -> CompanionContext? {
+    companions.first { $0.characterId == character.id }
+  }
+  func canEditCompanion(characterId: String) -> Bool {
+    hasFreshStatus && supportsContinuity && !savingCompanion && !submitting && !pendingRetry
+      && !tasks.contains { $0.character.id == characterId && !$0.finished }
+  }
+  func canContinue(task: CompanionTask) -> Bool {
+    guard canSubmit, let current = tasks.first(where: { $0.id == task.id }), current == task,
+      current.status == "completed", let continuity = current.continuity,
+      continuity.serverId == serverId,
+      let context = companions.first(where: { $0.characterId == current.character.id }),
+      context.profileDigest == continuity.profileDigest, context.generation == continuity.generation else { return false }
+    // Only the latest turn in this conversation is a valid continuation point.
+    return !tasks.contains { other in
+      other.id != current.id && other.continuity?.parentTaskId == current.id
+        && !["failed", "interrupted"].contains(other.status)
+    }
+  }
   var hasFreshStatus: Bool {
     guard liveStatusValid, let lastSuccessfulRefreshAt else { return false }
     let age = now().timeIntervalSince(lastSuccessfulRefreshAt)
     return age >= 0 && age < 15
   }
-  var canSubmit: Bool { hasFreshStatus && connected && !submitting && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
+  var canSubmit: Bool { hasFreshStatus && connected && !submitting && !savingCompanion && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
   var pendingRetry: Bool { pending != nil || pendingRecordUnreadable }
   private var endpoint: TaskEndpointIdentity? { connection.flatMap { TaskEndpointIdentity(url: $0.url, token: $0.token) } }
 
@@ -122,10 +167,19 @@ final class TaskConnection {
     connected = isSceneActive
   }
 
+  private func loadPending() {
+    let file = storage.appendingPathComponent("pending.json")
+    if FileManager.default.fileExists(atPath: file.path) {
+      do { pending = try JSONDecoder().decode(PendingTaskSubmission.self, from: Data(contentsOf: file)) }
+      catch { pendingRecordUnreadable = true }
+    }
+  }
+
   private func loadTaskCache() {
     if let data = try? Data(contentsOf: storage.appendingPathComponent("task-cache.json")),
       let cache = try? JSONDecoder().decode(TaskCache.self, from: data) {
       tasks = cache.tasks; project = cache.project; lastSuccessfulRefreshAt = cache.checkedAt
+      serverId = cache.serverId; companions = cache.companions ?? []; cachedEndpoint = cache.endpoint
     } else if let data = try? Data(contentsOf: storage.appendingPathComponent("tasks.json")) {
       tasks = (try? JSONDecoder().decode([CompanionTask].self, from: data)) ?? []
     }
@@ -134,7 +188,7 @@ final class TaskConnection {
   private func saveTaskCache() throws {
     guard let checkedAt = lastSuccessfulRefreshAt else { return }
     try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
-    try JSONEncoder().encode(TaskCache(project: project, tasks: tasks, checkedAt: checkedAt))
+    try JSONEncoder().encode(TaskCache(project: project, tasks: tasks, checkedAt: checkedAt, endpoint: endpoint, serverId: serverId, companions: companions))
       .write(to: storage.appendingPathComponent("task-cache.json"), options: .atomic)
   }
 
@@ -151,6 +205,9 @@ final class TaskConnection {
 
   @discardableResult func connect() async -> Bool {
     guard !Task.isCancelled, isSceneActive else { return false }
+    guard !submitting, !savingCompanion, !isSendingWatchConnection else {
+      operationError = String(localized: "continuity.connectionBusy"); return false
+    }
     operationError = nil
     invalidateLiveStatus()
     let attempt = UUID(); connectionAttempt = attempt
@@ -161,17 +218,22 @@ final class TaskConnection {
       operationError = "HTTPS 주소와 연결 키를 확인해 주세요. 시뮬레이터에서는 localhost도 허용합니다."; return false
     }
     guard permitsConnection(to: candidate) else { operationError = "접수를 확인하지 못한 요청이 있습니다. 원래 컴퓨터에서 확인한 뒤 연결을 변경해 주세요."; return false }
-    let value = ComputerConnection(url: candidate.url, token: connectionToken)
+    var value = ComputerConnection(url: candidate.url, token: connectionToken)
     do {
       let list: ListResponse = try await request("/v1/tasks", using: value)
       guard !Task.isCancelled, connectionAttempt == attempt, statusGeneration == generation,
         address == requestedAddress, connectionToken == requestedToken else { return false }
       // A submission can start while this connection check is awaiting its reply.
-      guard !submitting, permitsConnection(to: candidate) else {
+      guard !submitting, !savingCompanion, !isSendingWatchConnection, permitsConnection(to: candidate) else {
         operationError = "접수를 확인하지 못한 요청이 있습니다. 원래 컴퓨터에서 확인한 뒤 연결을 변경해 주세요."; return false
       }
+      if let expected = pending?.submission.continuity?.serverId, expected != list.serverId {
+        throw URLError(.userAuthenticationRequired)
+      }
+      value.serverId = list.serverId
       try persistCredential(value)
       connection = value
+      serverId = list.serverId; companions = list.companions ?? []
       tasks = list.tasks; project = list.project; refreshError = nil; acknowledged = [:]
       recordSuccessfulRefresh()
       try saveTaskCache()
@@ -192,8 +254,50 @@ final class TaskConnection {
     return pending?.permitsConnection(to: candidate, current: endpoint) ?? true
   }
 
+  func sendConnectionToWatch() async {
+    guard canSendWatchConnection, let connection, let serverId, let sender = watchConnectionSender else { return }
+    let envelope = WatchConnectionEnvelope(requestId: UUID().uuidString, url: connection.url,
+      token: connection.token, serverId: serverId)
+    guard envelope.isValid else { return }
+    isSendingWatchConnection = true
+    watchConnectionStatus = String(localized: "continuity.watchVerifying")
+    defer { isSendingWatchConnection = false }
+    do {
+      let receipt = try await sender(envelope)
+      guard receipt.confirms(envelope), self.connection?.url == envelope.url,
+        self.connection?.token == envelope.token, self.serverId == envelope.serverId else {
+        throw URLError(.badServerResponse)
+      }
+      watchConnectionStatus = String(localized: "continuity.watchSaved")
+    } catch { watchConnectionStatus = String(localized: "continuity.watchUnverified") }
+  }
+
+  func receiveWatchConnection(_ envelope: WatchConnectionEnvelope) async throws -> WatchConnectionReceipt {
+    guard envelope.isValid, isSceneActive, !submitting, !pendingRetry, !savingCompanion else {
+      throw URLError(.userAuthenticationRequired)
+    }
+    let origin = endpoint, generation = statusGeneration
+    let candidate = ComputerConnection(url: envelope.url, token: envelope.token, serverId: envelope.serverId)
+    let list: ListResponse = try await request("/v1/tasks", using: candidate)
+    guard !Task.isCancelled, isSceneActive, statusGeneration == generation, endpoint == origin,
+      !submitting, !pendingRetry, !savingCompanion, list.serverId == envelope.serverId else {
+      throw URLError(.userAuthenticationRequired)
+    }
+    try persistCredential(candidate)
+    invalidateLiveStatus()
+    connection = candidate; address = candidate.url; connectionToken = candidate.token
+    serverId = list.serverId; companions = list.companions ?? []; tasks = list.tasks; project = list.project
+    acknowledged = [:]; refreshError = nil; operationError = nil
+    recordSuccessfulRefresh(); try saveTaskCache()
+    return WatchConnectionReceipt(requestId: envelope.requestId, serverId: envelope.serverId,
+      url: envelope.url, saved: true)
+  }
+
   private func request<T: Decodable>(_ path: String, body: Data? = nil, using explicitConnection: ComputerConnection? = nil) async throws -> T {
     guard let connection = explicitConnection ?? connection, let url = URL(string: connection.url + path) else { throw URLError(.userAuthenticationRequired) }
+    #if (os(iOS) || os(watchOS)) && !targetEnvironment(simulator)
+    guard url.scheme == "https" else { throw URLError(.appTransportSecurityRequiresSecureConnection) }
+    #endif
     var request = URLRequest(url: url); request.timeoutInterval = 12
     request.setValue("Bearer \(connection.token)", forHTTPHeaderField: "Authorization")
     if let body { request.httpMethod = "POST"; request.httpBody = body; request.setValue("application/json", forHTTPHeaderField: "Content-Type") }
@@ -214,12 +318,20 @@ final class TaskConnection {
     do {
       let list: ListResponse = try await request("/v1/tasks", using: current)
       guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
+      guard list.serverId == current.serverId || current.serverId == nil else {
+        throw URLError(.userAuthenticationRequired)
+      }
+      if current.serverId == nil, let verified = list.serverId {
+        var pinned = current; pinned.serverId = verified
+        try persistCredential(pinned); connection = pinned
+      }
       #if os(watchOS)
       if let latest = list.tasks.first, let old = tasks.first(where: { $0.id == latest.id }), latest.status != old.status {
         if latest.status == "completed" { WKInterfaceDevice.current().play(.success) }
         if latest.status == "needsApproval" || latest.status == "failed" { WKInterfaceDevice.current().play(.notification) }
       }
       #endif
+      serverId = list.serverId; companions = list.companions ?? []
       tasks = list.tasks; project = list.project; refreshError = nil
       recordSuccessfulRefresh()
       try saveTaskCache()
@@ -248,24 +360,85 @@ final class TaskConnection {
     }
   }
 
-  func submit(character: CharacterPack) async {
-    guard !submitting else { return }
+  @discardableResult
+  func submit(character: CharacterPack) async -> Bool {
+    if pendingRetry { return await submitPrepared(nil) }
+    guard let context = companion(for: character), context.profile == CompanionProfile(character) else {
+      operationError = String(localized: "continuity.applyFirst")
+      return false
+    }
+    return await submit(companion: context)
+  }
+
+  @discardableResult
+  func submit(companion: CompanionContext, parentTask: CompanionTask? = nil) async -> Bool {
+    if pendingRetry { return await submitPrepared(nil) }
+    guard canSubmit, let serverId, companions.contains(companion),
+      parentTask == nil || (parentTask?.character.id == companion.characterId && canContinue(task: parentTask!)) else {
+      operationError = String(localized: "continuity.refreshBeforeSubmit")
+      return false
+    }
+    let submission = TaskSubmission(id: UUID().uuidString.lowercased(), prompt: prompt,
+      character: companion.profile.character,
+      continuity: .init(serverId: serverId, companionRevision: companion.revision, parentTaskId: parentTask?.id))
+    return await submitPrepared(submission)
+  }
+
+  @discardableResult
+  func saveCompanion(character: CharacterPack, memory: String, expectedRevision: Int, resetHistory: Bool = false, expectedServerId: String? = nil) async -> Bool {
+    operationError = nil
+    guard canEditCompanion(characterId: character.id), let serverId, let origin = endpoint,
+      expectedServerId == nil || expectedServerId == serverId,
+      (companion(for: character)?.revision ?? 0) == expectedRevision else {
+      operationError = String(localized: "continuity.memoryChanged")
+      return false
+    }
+    guard memory.utf16.count <= 4000 else {
+      operationError = String(localized: "continuity.memoryTooLong")
+      return false
+    }
+    struct Update: Encodable {
+      let serverId: String; let expectedRevision: Int; let profile: CompanionProfile
+      let memory: String; let resetHistory: Bool
+    }
+    savingCompanion = true
+    defer { savingCompanion = false }
+    let generation = statusGeneration
+    do {
+      let body = try JSONEncoder().encode(Update(serverId: serverId, expectedRevision: expectedRevision,
+        profile: CompanionProfile(character), memory: memory, resetHistory: resetHistory))
+      let saved: CompanionContext = try await request("/v1/companions/\(character.id)", body: body)
+      guard !Task.isCancelled, isSceneActive, statusGeneration == generation, endpoint == origin,
+        self.serverId == serverId, saved.characterId == character.id,
+        saved.profile == CompanionProfile(character), saved.memory == memory, saved.revision > expectedRevision else { return false }
+      companions.removeAll { $0.characterId == saved.characterId }; companions.append(saved)
+      operationError = nil
+      invalidateLiveStatus(); await refresh()
+      return true
+    } catch {
+      guard statusGeneration == generation, endpoint == origin else { return false }
+      operationError = error.localizedDescription
+      invalidateLiveStatus(); await refresh()
+      return false
+    }
+  }
+
+  private func submitPrepared(_ candidate: TaskSubmission?) async -> Bool {
+    guard !submitting else { return false }
     operationError = nil
     guard !pendingRecordUnreadable else {
-      operationError = "저장된 요청을 읽을 수 없습니다. 원래 컴퓨터의 작업을 확인한 뒤 이 기기의 미확인 요청을 해제해 주세요."; return
+      operationError = "저장된 요청을 읽을 수 없습니다. 원래 컴퓨터의 작업을 확인한 뒤 이 기기의 미확인 요청을 해제해 주세요."; return false
     }
     if pending == nil {
-      guard canSubmit, let endpoint else { return }
-      let submission = TaskSubmission(id: UUID().uuidString.lowercased(), prompt: prompt,
-        character: .init(id: character.id, version: character.version, name: character.name))
+      guard canSubmit, let endpoint, let submission = candidate else { return false }
       do {
         _ = try submission.encodedRequest()
         let value = PendingTaskSubmission(submission: submission, origin: endpoint)
         try JSONEncoder().encode(value).write(to: storage.appendingPathComponent("pending.json"), options: .atomic)
         pending = value
-      } catch { operationError = error.localizedDescription; return }
+      } catch { operationError = error.localizedDescription; return false }
     }
-    guard let pending, let endpoint else { operationError = "원래 컴퓨터의 연결 정보를 확인해 주세요."; return }
+    guard let pending, let endpoint else { operationError = "원래 컴퓨터의 연결 정보를 확인해 주세요."; return false }
     submitting = true; defer { submitting = false }
     do {
       let task: CompanionTask
@@ -274,8 +447,9 @@ final class TaskConnection {
         // a missing task is not permission to replay it on this computer.
         task = try await request("/v1/tasks/\(pending.submission.id)")
       } else {
-        guard pending.permitsRetry(on: endpoint) else {
-          operationError = "이 요청은 다른 컴퓨터에 보낸 요청입니다. 원래 연결에서 접수를 확인해 주세요."; return
+        guard pending.permitsRetry(on: endpoint),
+          pending.submission.continuity == nil || pending.submission.continuity?.serverId == connection?.serverId else {
+          operationError = "이 요청은 다른 컴퓨터에 보낸 요청입니다. 원래 연결에서 접수를 확인해 주세요."; return false
         }
         task = try await request("/v1/tasks", body: pending.submission.encodedRequest())
       }
@@ -284,8 +458,9 @@ final class TaskConnection {
       operationError = nil
       invalidateLiveStatus()
       await refresh()
+      return true
     } catch let failure as RequestFailure where pending.origin != nil && failure.isDefinitiveRejection {
-      guard self.pending == pending else { return }
+      guard self.pending == pending else { return true }
       do {
         try resolvePending(restoringPrompt: true)
         operationError = failure.localizedDescription
@@ -293,12 +468,13 @@ final class TaskConnection {
     } catch {
       // Polling may already have confirmed this exact request while the POST
       // response was delayed or lost. A late transport failure cannot undo it.
-      guard self.pending == pending else { return }
+      guard self.pending == pending else { return true }
       let guidance = pending.origin == nil
         ? "이전 버전의 요청은 원래 컴퓨터에서 접수 여부를 확인해야 합니다. 자동으로 다시 실행하지 않습니다. "
         : "요청 접수를 확인하지 못했습니다. 같은 요청 ID로 다시 확인할 수 있습니다. "
       operationError = guidance + error.localizedDescription
     }
+    return false
   }
 
   private func reconcileListedTask() throws {
@@ -354,7 +530,7 @@ final class TaskConnection {
       let current = tasks.first(where: { $0.id == task.id }),
       !current.finished, current.sequence >= task.sequence,
       current.prompt == task.prompt, current.character == task.character,
-      current.project == task.project else { return nil }
+      current.project == task.project, current.continuity == task.continuity else { return nil }
     return current
   }
 }

@@ -14,7 +14,7 @@ struct DobooLibraryApp: App {
           .tabItem { Label("캐릭터", systemImage: "person.crop.square") }
       }
         .task {
-          library.startTransfer()
+          library.startTransfer(tasks: tasks)
           #if DEBUG
           library.importLaunchArgument()
           #endif

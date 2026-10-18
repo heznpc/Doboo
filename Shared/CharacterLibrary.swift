@@ -33,9 +33,9 @@ final class CharacterLibrary {
     }
   }
 
-  func startTransfer() {
-    guard transfer == nil else { return }
-    transfer = CharacterTransfer(library: self)
+  func startTransfer(tasks: TaskConnection? = nil) {
+    if transfer == nil { transfer = CharacterTransfer(library: self) }
+    if let tasks { transfer?.attachConnection(tasks) }
   }
 
   @discardableResult

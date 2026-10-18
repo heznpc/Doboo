@@ -15,7 +15,7 @@ struct CompanionHomeView: View {
         CharacterPlayView(pack: library.selected, isEnabled: !showingTasks)
           .frame(height: min(480, max(180, proxy.size.height * 0.55)))
           .frame(maxWidth: 520)
-        Text("눌러 보고, 끌어 보고, 잠깐 같이 쉬어요.")
+        Text("continuity.homeHint")
           .font(.subheadline).foregroundStyle(.secondary)
         TimelineView(.animation(minimumInterval: 1, paused: scenePhase != .active)) { _ in
           Button { showingTasks = true } label: {
@@ -23,6 +23,8 @@ struct CompanionHomeView: View {
               VStack(spacing: 3) {
                 Text("task.homeComputer")
                 if let task = tasks.tasks.first {
+                  Text(task.character.name)
+                    .font(.caption.weight(.semibold))
                   Text(LocalizedStringKey(tasks.hasFreshStatus ? task.statusKey : "task.status.saved"))
                     .font(.caption)
                 }

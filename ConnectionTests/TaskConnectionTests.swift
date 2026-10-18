@@ -89,14 +89,17 @@ private final class Harness {
   let storage = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
   let clock = TestClock()
 
-  init() {
+  init(persistFails: Bool = false) {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [ControlledURLProtocol.self]
     session = URLSession(configuration: configuration)
     let credentials = self.credentials
     let clock = self.clock
     connection = TaskConnection(storage: storage,
-      session: session, persistCredential: { credentials.urls.append($0.url) }, now: { clock.date })
+      session: session, persistCredential: {
+        if persistFails { throw URLError(.cannotWriteToFile) }
+        credentials.urls.append($0.url)
+      }, now: { clock.date })
     connection.connectionToken = String(repeating: "a", count: 64)
     connection.setSceneActive(true)
   }
@@ -159,7 +162,16 @@ struct TaskConnectionTests {
     try await changedActionTargetsSendNoRequests()
     try await currentApprovalStillWorks()
     try await receiptFailureDoesNotInvalidateStatus()
-    print("Passed 15 connection lifecycle, freshness, and action regressions (URLProtocol; no network or Keychain).")
+    try await serverIdentityChangeCannotReplaceContext()
+    try await staleMemoryEditDoesNotOverwriteNewRevision()
+    try await missingProfileCannotStartLegacyTask()
+    try await continuityGenerationInvalidatesOldFollowup()
+    try await watchConnectionRequiresVerifiedPersistence()
+    try await delayedWatchVerificationCannotOverrideNewSession()
+    try await senderRejectsMismatchedWatchReceipt()
+    try await memorySaveKeepsItsOriginalComputer()
+    try await watchPersistenceFailureEmitsNoReceipt()
+    print("Passed 24 connection, continuity, and handoff regressions (URLProtocol; no network, WCSession, or Keychain).")
   }
 
   @MainActor
@@ -454,4 +466,171 @@ struct TaskConnectionTests {
                   "Receipt rejection must retain the successful GET's freshness and retry receipt on the next poll")
     }
   }
+  private static func context(revision: Int = 1, generation: Int = 1, memory: String = "Explicit preference") -> CompanionContext {
+    .init(characterId: "doboo", profile: CompanionProfile(.builtin), profileDigest: "profile-digest",
+      revision: revision, memory: memory, generation: generation, updatedAt: "2026-10-19T00:00:00Z")
+  }
+
+  private static func object<T: Encodable>(_ value: T) throws -> [String: Any] {
+    try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as! [String: Any]
+  }
+
+  private static func continuityList(serverId: String = "server-a", context: CompanionContext = context(),
+                                     tasks: [[String: Any]] = []) throws -> [String: Any] {
+    ["project": "Computer", "serverId": serverId, "companions": [try object(context)], "tasks": tasks]
+  }
+
+  @MainActor
+  private static func establishContinuity(_ harness: Harness, context: CompanionContext = context(),
+                                          tasks: [[String: Any]] = []) async throws {
+    let (_, response) = harness.prepare()
+    let attempt = Task { await harness.connection.connect() }
+    try await wait(for: response.started)
+    try response.reply(body: continuityList(context: context, tasks: tasks))
+    let success = await attempt.value
+    try require(success && harness.connection.supportsContinuity, "Continuity server must be verified")
+  }
+
+  @MainActor
+  private static func serverIdentityChangeCannotReplaceContext() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishContinuity(harness)
+    let response = harness.nextResponse()
+    let refresh = Task { await harness.connection.refresh() }
+    try await wait(for: response.started)
+    try response.reply(body: continuityList(serverId: "replacement-server", context: context(memory: "Other user's note")))
+    await refresh.value
+    try require(!harness.connection.hasFreshStatus && harness.connection.serverId == "server-a"
+      && harness.connection.companions.first?.memory == "Explicit preference",
+      "A different store behind the same endpoint cannot replace or revive the remembered context")
+  }
+
+  @MainActor
+  private static func staleMemoryEditDoesNotOverwriteNewRevision() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishContinuity(harness, context: context(revision: 2, memory: "New remote memory"))
+    let response = harness.nextResponse()
+    let saved = await harness.connection.saveCompanion(character: .builtin, memory: "Draft from older editor", expectedRevision: 1)
+    try require(!saved && !response.started && harness.connection.companions.first?.memory == "New remote memory",
+      "An editor must submit the revision from when it opened, never silently overwrite newer device memory")
+    let wrongServer = await harness.connection.saveCompanion(character: .builtin, memory: "Draft from another server",
+      expectedRevision: 2, expectedServerId: "old-computer")
+    try require(!wrongServer && !response.started,
+      "A same-revision draft from a different server must not overwrite this computer's memory")
+  }
+
+  @MainActor
+  private static func missingProfileCannotStartLegacyTask() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establish(harness)
+    let response = harness.nextResponse()
+    harness.connection.prompt = "Do this as my character"
+    let saved = await harness.connection.submit(character: .builtin)
+    try require(!saved && !response.started && !harness.connection.pendingRetry,
+      "An old server or unapplied character cannot silently fall back to metadata-only execution")
+  }
+
+  @MainActor
+  private static func continuityGenerationInvalidatesOldFollowup() async throws {
+    let harness = Harness(); defer { harness.close() }
+    var task = runningTask
+    task["status"] = "completed"
+    task["continuity"] = ["serverId": "server-a", "conversationId": "conversation", "companionRevision": 1,
+      "generation": 1, "profileDigest": "profile-digest", "memoryApplied": true,
+      "historyCount": 0, "historyTruncated": false]
+    try await establishContinuity(harness, context: context(revision: 2, generation: 2, memory: ""), tasks: [task])
+    let shown = harness.connection.tasks[0]
+    try require(!harness.connection.canContinue(task: shown),
+      "Clearing or editing memory must block replay through a task from the old generation")
+    let response = harness.nextResponse()
+    harness.connection.prompt = "Continue the old result"
+    let accepted = await harness.connection.submit(companion: harness.connection.companions[0], parentTask: shown)
+    try require(!accepted && !response.started, "Old context must require an explicit new conversation")
+  }
+
+  @MainActor
+  private static func watchConnectionRequiresVerifiedPersistence() async throws {
+    let harness = Harness(); defer { harness.close() }
+    let (url, response) = harness.prepare()
+    let envelope = WatchConnectionEnvelope(requestId: UUID().uuidString, url: url,
+      token: harness.connection.connectionToken, serverId: "server-a")
+    let failed = Task { try? await harness.connection.receiveWatchConnection(envelope) }
+    try await wait(for: response.started)
+    try response.reply(body: continuityList(serverId: "other-server"))
+    let rejection = await failed.value
+    try require(rejection == nil && harness.credentials.urls.isEmpty && !harness.connection.hasConnection,
+      "A message transport success cannot save an unverified server or emit a successful receipt")
+    let next = harness.nextResponse()
+    let success = Task { try await harness.connection.receiveWatchConnection(envelope) }
+    try await wait(for: next.started)
+    try next.reply(body: continuityList())
+    let receipt = try await success.value
+    try require(receipt.confirms(envelope) && harness.credentials.urls == [url]
+      && harness.connection.hasFreshStatus && harness.connection.companions.first?.memory == "Explicit preference",
+      "A receipt must follow server verification, Keychain persistence, and actual context receipt")
+  }
+
+  @MainActor
+  private static func delayedWatchVerificationCannotOverrideNewSession() async throws {
+    let harness = Harness(); defer { harness.close() }
+    let (url, response) = harness.prepare()
+    let envelope = WatchConnectionEnvelope(requestId: UUID().uuidString, url: url,
+      token: harness.connection.connectionToken, serverId: "server-a")
+    let attempt = Task { try? await harness.connection.receiveWatchConnection(envelope) }
+    try await wait(for: response.started)
+    harness.connection.setSceneActive(false)
+    harness.connection.setSceneActive(true)
+    try response.reply(body: continuityList())
+    let result = await attempt.value
+    try require(result == nil && harness.credentials.urls.isEmpty,
+      "An old pairing reply must not apply credentials after its receiving foreground session ends")
+  }
+
+  @MainActor
+  private static func senderRejectsMismatchedWatchReceipt() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishContinuity(harness)
+    harness.connection.watchConnectionSender = { envelope in
+      WatchConnectionReceipt(requestId: envelope.requestId, serverId: "other-server", url: envelope.url, saved: true)
+    }
+    await harness.connection.sendConnectionToWatch()
+    try require(harness.connection.watchConnectionStatus == String(localized: "continuity.watchUnverified"),
+      "The phone must not show shared connection success for a receipt from a different computer")
+  }
+
+  @MainActor
+  private static func memorySaveKeepsItsOriginalComputer() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishContinuity(harness)
+    let original = harness.connection.verifiedAddress
+    let response = harness.nextResponse()
+    let save = Task { await harness.connection.saveCompanion(character: .builtin, memory: "Updated memory", expectedRevision: 1) }
+    try await wait(for: response.started)
+    let (_, unexpected) = harness.prepare()
+    let changed = await harness.connection.connect()
+    try require(!changed && !unexpected.started && harness.connection.verifiedAddress == original,
+      "A memory save must not switch destination while its original request is being verified")
+    let updated = context(revision: 2, generation: 2, memory: "Updated memory")
+    try response.reply(body: object(updated))
+    try await wait(for: response.startCount == 2)
+    try response.reply(body: continuityList(context: updated))
+    let success = await save.value
+    try require(success && harness.connection.companions.first == updated && harness.connection.hasFreshStatus && harness.connection.error == nil,
+      "Rejecting a connection change must not invalidate the in-flight memory save")
+  }
+
+  @MainActor
+  private static func watchPersistenceFailureEmitsNoReceipt() async throws {
+    let harness = Harness(persistFails: true); defer { harness.close() }
+    let (url, response) = harness.prepare()
+    let envelope = WatchConnectionEnvelope(requestId: UUID().uuidString, url: url,
+      token: harness.connection.connectionToken, serverId: "server-a")
+    let attempt = Task { try? await harness.connection.receiveWatchConnection(envelope) }
+    try await wait(for: response.started)
+    try response.reply(body: continuityList())
+    let receipt = await attempt.value
+    try require(receipt == nil && !harness.connection.hasConnection && harness.credentials.urls.isEmpty,
+      "Verified HTTP alone cannot emit a paired-connection receipt when credential persistence failed")
+  }
+
 }

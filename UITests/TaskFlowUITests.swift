@@ -42,8 +42,19 @@ final class TaskFlowUITests: XCTestCase {
     select.tap()
     app.buttons["동반자"].firstMatch.tap()
     app.buttons["home.tasks"].tap()
+    let memory = app.buttons["memory.open"]
+    XCTAssertTrue(memory.waitForExistence(timeout: 20))
+    if !memory.isHittable { app.swipeUp() }
+    memory.tap()
+    let saveMemory = app.buttons["memory.save"]
+    XCTAssertTrue(saveMemory.waitForExistence(timeout: 10))
+    if !saveMemory.isHittable { app.swipeUp() }
+    saveMemory.tap()
+    XCTAssertTrue(app.descendants(matching: .any)["memory.saved"].firstMatch.waitForExistence(timeout: 20))
+    app.buttons["memory.close"].tap()
     let field = app.textFields["task.prompt"].exists ? app.textFields["task.prompt"] : app.textViews["task.prompt"]
     guard field.waitForExistence(timeout: 20) else { return XCTFail("Task entry missing") }
+    if !field.isHittable { app.swipeUp() }
     field.tap()
     field.typeText("Run npm test in this project. If the tests pass, create work/phone-task-proof.txt containing DOBOO_PHONE_TO_COMPUTER_OK and the real test summary. Do not commit or push. Report the result in Korean.")
     let submit = app.buttons["task.submit"]

@@ -23,6 +23,13 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   let id: String
   let prompt: String
   let character: CompanionTask.Character
+  var continuity: Continuity? = nil
+
+  struct Continuity: Codable, Equatable, Sendable {
+    let serverId: String
+    let companionRevision: Int
+    let parentTaskId: String?
+  }
 
   enum ValidationError: LocalizedError, Equatable {
     case emptyPrompt, promptTooLong, requestTooLarge
@@ -46,7 +53,11 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   }
 
   func matches(_ task: CompanionTask) -> Bool {
-    id == task.id && prompt == task.prompt && character == task.character
+    guard id == task.id, prompt == task.prompt, character == task.character else { return false }
+    guard let continuity else { return task.continuity == nil }
+    return task.continuity?.serverId == continuity.serverId
+      && task.continuity?.companionRevision == continuity.companionRevision
+      && task.continuity?.parentTaskId == continuity.parentTaskId
   }
 }
 
@@ -85,5 +96,33 @@ struct PendingTaskSubmission: Codable, Equatable, Sendable {
     // The bridge only asserts this marker after establishing non-admission.
     // A generic 4xx, ID conflict, proxy failure, or undecodable response is not proof.
     [400, 409, 422].contains(status) && submissionRejected == true
+  }
+}
+
+/// One-shot paired-device envelope. It is never stored in preferences or queued
+/// for background delivery; only a verified Keychain save merits a receipt.
+struct WatchConnectionEnvelope: Codable, Equatable, Sendable {
+  let requestId: String
+  let url: String
+  let token: String
+  let serverId: String
+
+  var endpoint: TaskEndpointIdentity? { TaskEndpointIdentity(url: url, token: token) }
+  var isValid: Bool {
+    guard UUID(uuidString: requestId) != nil, url.utf8.count <= 2048, token.utf8.count <= 4096, let endpoint,
+      endpoint.url == url, URL(string: url)?.scheme == "https",
+      !serverId.isEmpty, serverId.utf8.count <= 128 else { return false }
+    return true
+  }
+}
+
+struct WatchConnectionReceipt: Codable, Equatable, Sendable {
+  let requestId: String
+  let serverId: String
+  let url: String
+  let saved: Bool
+
+  func confirms(_ envelope: WatchConnectionEnvelope) -> Bool {
+    saved && requestId == envelope.requestId && serverId == envelope.serverId && url == envelope.url
   }
 }

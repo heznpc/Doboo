@@ -8,7 +8,7 @@ struct DobooApp: App {
     WindowGroup {
       ContentView(library: library, tasks: tasks)
       .task {
-        library.startTransfer()
+        library.startTransfer(tasks: tasks)
         #if DEBUG
         library.importLaunchArgument()
         #endif
