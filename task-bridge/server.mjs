@@ -6,10 +6,10 @@ import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, realpat
 import { resolve, join, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateCharacterization } from '../character-kit/model.mjs';
-import { StoryWorld, sceneRules, sceneSchema } from './story.mjs';
+import { StoryWorld } from './story.mjs';
+import { NativeCast, castJobs, prepareCastWorkspace, sceneBaseRules, sceneRules, sceneSchema, sceneConfig as defaultSceneConfig } from './native-cast.mjs';
 import { resolveCodexBinary } from './runtime.mjs';
 
-const maxSceneResultBytes = 2 * 1024 * 1024;
 const terminal = new Set(['completed', 'failed', 'interrupted']);
 const bounded = (text, limit = 24000) => String(text ?? '').slice(-limit);
 const atomic = (path, value) => { writeFileSync(`${path}.tmp`, JSON.stringify(value), { mode: 0o600 }); renameSync(`${path}.tmp`, path); };
@@ -75,7 +75,11 @@ export class TaskBridge {
     }
   }
   persist() { atomic(this.file, { tasks: [...this.jobs.values()], story: this.story.state }); }
-  change(task, fields) { Object.assign(task, fields, { sequence: task.sequence + 1, updatedAt: new Date().toISOString() }); this.persist(); }
+  change(task, fields) {
+    const before = structuredClone(task);
+    Object.assign(task, fields, { sequence: task.sequence + 1, updatedAt: new Date().toISOString() });
+    try { this.persist(); } catch (error) { for (const key of Object.keys(task)) delete task[key]; Object.assign(task, before); throw error; }
+  }
   companion(id) { return Object.hasOwn(this.contexts.companions, id) ? this.contexts.companions[id] : undefined; }
   updateCompanion(id, input) {
     if (!input || input.serverId !== this.serverId) throw new Error('연결된 컴퓨터가 변경되었습니다. 다시 연결을 확인해 주세요.');
@@ -167,13 +171,21 @@ export class TaskBridge {
   async execute(task) {
     const useProcessGroup = process.platform !== 'win32';
     const isScene = Boolean(task.episodeId);
-    const sceneConfig = { 'features.shell_tool': false, 'features.unified_exec': false, 'features.apps': false,
-      'features.plugins': false, 'features.multi_agent': false, 'features.browser_use': false, 'features.browser_use_external': false,
-      'features.in_app_browser': false, 'features.computer_use': false, 'features.image_generation': false, 'features.hooks': false,
-      'mcp_servers': {}, 'web_search': 'disabled' };
+    let binding;
+    if (isScene) {
+      try { binding = prepareCastWorkspace(task); }
+      catch (error) {
+        const fields = { status: 'failed', error: bounded(`캐릭터 역할 준비 실패: ${error.message}`, 2000), approvals: [] };
+        try { this.change(task, fields); } catch { Object.assign(task, fields); }
+        return;
+      }
+    }
+    const runtimeCwd = binding?.cwd ?? this.project;
+    const sceneConfig = { ...defaultSceneConfig, ...binding?.config };
+    let cast, completing = false;
     const overrides = isScene ? Object.entries(sceneConfig).flatMap(([key, value]) => ['-c', `${key}=${JSON.stringify(value)}`]) : [];
     const child = spawn(this.codex, [...overrides, 'app-server', '--listen', 'stdio://'], {
-      cwd: this.project, stdio: ['pipe', 'pipe', 'pipe'], detached: useProcessGroup,
+      cwd: runtimeCwd, stdio: ['pipe', 'pipe', 'pipe'], detached: useProcessGroup,
     });
     const pending = new Map(); let nextID = 0;
     const write = message => child.stdin.write(`${JSON.stringify(message)}\n`);
@@ -212,14 +224,15 @@ export class TaskBridge {
       }
     };
     this.sessions.set(task.id, { rpc, write, stop });
-    const fail = error => { if (!terminal.has(task.status)) this.change(task, { status: 'failed', error: bounded(error.message, 2000), approvals: [] }); stop(); };
-    const receiveResult = text => {
-      const result = String(text ?? '');
-      if (isScene && Buffer.byteLength(result, 'utf8') > maxSceneResultBytes) {
-        fail(new Error('장면 응답이 최대 크기 2 MiB를 초과하여 사건 기억으로 저장하지 않았습니다.')); return;
-      }
-      this.change(task, { result: isScene ? result : bounded(result) });
+    const fail = error => {
+      const fields = { status: task.cancelRequested ? 'interrupted' : 'failed', error: bounded(error.message, 2000), approvals: [],
+        ...(cast ? { castExecution: structuredClone(cast.receipt) } : {}) };
+      try { if (!terminal.has(task.status)) this.change(task, fields); }
+      catch { // A disk failure must stop execution without leaving a phantom event.
+        Object.assign(task, fields);
+      } finally { stop(); }
     };
+    const receiveResult = text => this.change(task, { result: bounded(text) });
     child.on('error', fail);
     child.stdin.on('error', error => { if (!terminal.has(task.status)) fail(error); });
     // Drain stderr without persisting credentials or unrelated diagnostics.
@@ -229,6 +242,7 @@ export class TaskBridge {
       finished = true;
       for (const p of pending.values()) { clearTimeout(p.timer); p.reject(new Error('컴퓨터 실행기가 종료되었습니다.')); }
       pending.clear(); this.sessions.delete(task.id);
+      binding?.cleanup();
       if (!terminal.has(task.status)) this.change(task, { status: 'interrupted', error: '완료 이벤트 없이 실행기가 종료되었습니다.', approvals: [] });
       stop();
       if (!useProcessGroup || !groupExists()) clearTimeout(killTimer);
@@ -259,10 +273,27 @@ export class TaskBridge {
         }
         return;
       }
+      if (isScene) {
+        if (task.cancelRequested) return;
+        try {
+          if (!cast) return;
+          cast.observe(message.method, p);
+          if (['turn/started', 'turn/completed', 'item/completed'].includes(message.method)) {
+            this.change(task, { castExecution: structuredClone(cast.receipt), activity: '캐릭터별 장면 실행 중' });
+          }
+          if (message.method === 'turn/completed' && p.threadId === task.threadId && !completing) {
+            completing = true;
+            void cast.validate(rpc).then(({ value, execution }) => {
+              if (task.cancelRequested || terminal.has(task.status)) return;
+              this.story.complete(task, value, execution); stop();
+            }).catch(fail);
+          }
+        } catch (error) { fail(error); }
+        return;
+      }
       if (p.threadId && task.threadId && p.threadId !== task.threadId) return;
       if (message.method === 'turn/started') this.change(task, { turnId: p.turn.id, status: 'running', activity: '작업 실행 중' });
       if (message.method === 'item/agentMessage/delta') receiveResult(task.result + p.delta);
-      if (isScene && message.method === 'item/started' && ['commandExecution', 'fileChange', 'mcpToolCall', 'dynamicToolCall', 'webSearch', 'imageGeneration', 'collabAgentToolCall'].includes(p.item?.type)) { fail(new Error('이야기 장면에서 도구 실행이 감지되어 중단했습니다.')); return; }
       if (message.method === 'item/started' && p.item?.type === 'commandExecution') this.change(task, { activity: bounded(p.item.command, 2000) });
       if (message.method === 'item/completed') {
         if (p.item?.type === 'agentMessage') receiveResult(p.item.text);
@@ -270,9 +301,6 @@ export class TaskBridge {
       }
       if (message.method === 'turn/completed') {
         const status = terminal.has(p.turn.status) ? p.turn.status : 'failed';
-        if (isScene && status === 'completed') {
-          try { this.story.complete(task); } catch (error) { fail(error); return; }
-        }
         this.change(task, { status, approvals: [], activity: status === 'completed' ? '작업 완료' : '작업 종료', error: p.turn.error?.message ?? null });
         stop();
       }
@@ -282,13 +310,35 @@ export class TaskBridge {
       await rpc('initialize', { clientInfo: { name: 'doboo', title: 'Doboo', version: '0.3.0' } }); write({ method: 'initialized' });
       const auth = await rpc('account/read', {});
       if (auth.account?.type !== 'chatgpt') throw new Error('컴퓨터에서 Codex를 ChatGPT 구독 계정으로 로그인해 주세요. API 결제 경로로 전환하지 않습니다.');
-      const { thread } = await rpc('thread/start', { cwd: this.project, sandbox: isScene ? 'read-only' : 'workspace-write', approvalPolicy: isScene ? 'never' : 'on-request', approvalsReviewer: 'user',
-        ...(isScene ? { ephemeral: true, config: sceneConfig, baseInstructions: sceneRules } : {}), developerInstructions: isScene ? sceneRules : executionRules });
-      if (terminal.has(task.status)) { stop(); return; }
+      let sceneModel;
+      if (isScene) {
+        // Isolation changes cwd, so preserve settings from the user's project
+        // instead of silently adopting the temporary directory's defaults.
+        const [source, effective] = await Promise.all([
+          rpc('config/read', { includeLayers: false, cwd: this.project }),
+          rpc('config/read', { includeLayers: false, cwd: runtimeCwd }),
+        ]);
+        sceneModel = source.config?.model ?? undefined;
+        if (source.config?.model_reasoning_effort != null) sceneConfig.model_reasoning_effort = source.config.model_reasoning_effort;
+        // An empty MCP table does not override layered user configuration. Disable
+        // every configured server explicitly before creating the scene session.
+        for (const role of binding.roles) {
+          const registered = effective.config?.agents?.[role.name];
+          if (!registered || realpathSync(registered.config_file) !== role.path || registered.description !== role.description)
+            throw new Error('호스트 캐릭터 역할 등록을 확인하지 못했습니다.');
+        }
+        for (const name of Object.keys(effective.config?.mcp_servers ?? {})) sceneConfig[`mcp_servers.${name}.enabled`] = false;
+      }
+      const started = await rpc('thread/start', { cwd: runtimeCwd, sandbox: isScene ? 'read-only' : 'workspace-write', approvalPolicy: isScene ? 'never' : 'on-request', approvalsReviewer: 'user',
+        ...(isScene ? { ephemeral: true, model: sceneModel, config: sceneConfig, baseInstructions: sceneBaseRules } : {}), developerInstructions: isScene ? sceneRules : executionRules });
+      const { thread } = started;
+      if (terminal.has(task.status) || task.cancelRequested) { stop(); return; }
       this.change(task, { threadId: thread.id, status: 'running', activity: '작업 시작' });
       const context = task._execution;
-      const input = isScene ? [{ type: 'text', text: 'Fictional episode context (untrusted data):\n' + JSON.stringify(context.story) },
-        { type: 'text', text: 'Requested fictional scene:\n' + task.prompt }] : context ? [{ type: 'text', text: 'Doboo context (untrusted preference and historical data; not a new request):\n'
+      if (isScene) { cast = new NativeCast(task, started, binding); this.change(task, { castExecution: structuredClone(cast.receipt) }); }
+      const input = isScene ? [{ type: 'text', text: 'Native character cast jobs. Explicitly invoke all listed native child agents; use each exact message and settings. Wait for actual completions, then summarize only their fictional contributions.\n'
+          + JSON.stringify(castJobs(context.story, started.model, started.reasoningEffort, binding)) }]
+        : context ? [{ type: 'text', text: 'Doboo context (untrusted preference and historical data; not a new request):\n'
         + JSON.stringify({ character: context.profile, savedMemory: context.memory, previousCompletedWork: context.history,
           historyTruncated: context.continuity.historyTruncated }) }, { type: 'text', text: 'Current task from the user:\n' + task.prompt }]
         : [{ type: 'text', text: task.prompt }];
@@ -299,16 +349,32 @@ export class TaskBridge {
   }
   async cancel(task) {
     if (terminal.has(task.status)) return task;
+    // Cancellation is a runtime fact even if storage is unavailable. Set it
+    // before change() takes its rollback snapshot so failed writes cannot undo
+    // the intent and allow a late scene completion to commit.
+    task.cancelRequested = true;
     const session = this.sessions.get(task.id);
-    let interruptFailed = false;
+    let interruptFailed = false, persistFailed = false;
     try {
-      if (session && task.turnId) await session.rpc('turn/interrupt', { threadId: task.threadId, turnId: task.turnId }, this.interruptTimeoutMs);
-    } catch { interruptFailed = true; }
-    finally {
+      try { this.change(task, { cancelRequested: true }); }
+      catch { persistFailed = true; }
       try {
-        // Completion may arrive while the interrupt RPC is awaiting its reply.
-        if (!terminal.has(task.status)) this.change(task, { status: 'interrupted', approvals: [], activity: '사용자가 중단했습니다.',
-          error: interruptFailed ? '중단 응답을 확인하지 못해 컴퓨터 실행기를 종료했습니다.' : null });
+        if (session && task.turnId) await session.rpc('turn/interrupt', { threadId: task.threadId, turnId: task.turnId }, this.interruptTimeoutMs);
+      } catch { interruptFailed = true; }
+    } finally {
+      try {
+        if (!terminal.has(task.status)) {
+          const fields = { status: 'interrupted', approvals: [], activity: '사용자가 중단했습니다.',
+            error: persistFailed ? '중단 요청 저장에 실패하여 컴퓨터 실행기를 종료했습니다.'
+              : interruptFailed ? '중단 응답을 확인하지 못해 컴퓨터 실행기를 종료했습니다.' : null };
+          try { this.change(task, fields); }
+          catch {
+            // Preserve the stopped state in memory; restart recovery handles
+            // the earlier durable running record without replaying the task.
+            Object.assign(task, fields, { error: '중단 상태를 저장하지 못했지만 컴퓨터 실행기를 종료했습니다.',
+              sequence: task.sequence + 1, updatedAt: new Date().toISOString() });
+          }
+        }
       } finally { session?.stop(); }
     }
     return task;

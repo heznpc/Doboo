@@ -202,6 +202,12 @@ private struct StoryEpisodeView: View {
               systemImage: connection.hasFreshStatus ? task.statusSymbol : "clock.arrow.circlepath")
               .accessibilityIdentifier("story.sceneStatus")
             if !task.finished { Text("story.waiting").font(.caption) }
+            if !task.finished, let execution = task.castExecution, execution.hasCharacterAgents {
+              StoryCastProgress(execution: execution, profiles: episode.castProfiles,
+                fresh: connection.hasFreshStatus)
+            } else if task.status != "completed", let execution = task.castExecution, execution.hasCharacterAgents {
+              StoryCastEvidence(execution: execution, profiles: episode.castProfiles)
+            }
             if let error = task.error { Text(error).font(.caption).foregroundStyle(.red) }
           }
           if let error = connection.storyError { Text(error).foregroundStyle(.red).font(.caption) }
@@ -223,6 +229,12 @@ private struct StoryEpisodeView: View {
               }
               Text("story.eventMemory").font(.caption.bold())
               Text(event.summary).accessibilityIdentifier("story.event.\(event.id)")
+              if let execution = event.castExecution, execution.hasCharacterAgents {
+                StoryCastEvidence(execution: execution, profiles: episode.castProfiles)
+                  .accessibilityIdentifier("story.execution.\(event.id)")
+              } else {
+                Text("story.execution.unverified").font(.caption).foregroundStyle(.secondary)
+              }
               Button("story.editMemory") { editEvent = event }
                 .disabled(!connection.canEditStory).accessibilityIdentifier("story.editEvent.\(event.id)")
               ForEach(Array((event.excludedFromContext == true ? [] : event.relationshipChanges).enumerated()), id: \.offset) { _, change in
@@ -261,6 +273,132 @@ private struct StoryEpisodeView: View {
     }
     .sheet(isPresented: $showRelationships) {
       if let episode, let state { StoryRelationshipsView(connection: connection, episode: episode, snapshot: state) }
+    }
+  }
+}
+
+private struct StoryCastProgress: View {
+  let execution: StoryCastExecution
+  let profiles: [CompanionProfile]
+  let fresh: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ForEach(execution.agents) { agent in
+        StoryCastStatus(agent: agent, profiles: profiles, fresh: fresh)
+      }
+    }.accessibilityIdentifier("story.castProgress")
+  }
+}
+
+private struct StoryCastStatus: View {
+  let agent: StoryCastExecution.Agent
+  let profiles: [CompanionProfile]
+  var fresh = true
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(profiles.first { $0.id == agent.characterId }?.name ?? agent.characterId)
+        .font(.caption.bold())
+      Label(LocalizedStringKey(fresh ? agent.statusKey : "story.execution.saved"),
+        systemImage: fresh ? agent.statusSymbol : "clock.arrow.circlepath")
+        .font(.caption).foregroundStyle(.secondary)
+    }.accessibilityIdentifier("story.castStatus.\(agent.characterId)")
+  }
+}
+
+private struct StoryCastEvidence: View {
+  let execution: StoryCastExecution
+  let profiles: [CompanionProfile]
+
+  var body: some View {
+    StoryExecutionDisclosure("story.execution.details") {
+      StoryExecutionField(title: "story.execution.coordinator", value: execution.coordinatorThreadId)
+      if let contextDigest = execution.contextDigest {
+        StoryExecutionField(title: "story.execution.context", value: contextDigest)
+      }
+      if let memories = execution.sourceEventIds {
+        StoryExecutionField(title: "story.execution.memories", value: String(memories.count))
+      }
+      if let relationships = execution.relationshipIds {
+        StoryExecutionField(title: "story.execution.relationships", value: String(relationships.count))
+      }
+      if execution.historyTruncated == true {
+        Text("story.execution.truncated").font(.caption).foregroundStyle(.secondary)
+      }
+      ForEach(execution.agents) { agent in
+        VStack(alignment: .leading, spacing: 8) {
+          StoryCastStatus(agent: agent, profiles: profiles)
+          StoryExecutionField(title: "story.execution.version", value: String(agent.characterVersion))
+          if let threadId = agent.threadId {
+            StoryExecutionField(title: "story.execution.thread", value: threadId)
+          }
+          if let turnId = agent.turnId {
+            StoryExecutionField(title: "story.execution.turn", value: turnId)
+          }
+          if let messageId = agent.finalMessageId {
+            StoryExecutionField(title: "story.execution.message", value: messageId)
+          }
+          if let model = agent.model {
+            StoryExecutionField(title: "story.execution.model", value: model)
+          }
+          if let effort = agent.reasoningEffort {
+            StoryExecutionField(title: "story.execution.effort", value: effort)
+          }
+          if let role = agent.agentRole {
+            StoryExecutionField(title: "story.execution.role", value: role)
+          }
+          if let digest = agent.instructionsDigest {
+            StoryExecutionField(title: "story.execution.instructions", value: digest)
+          }
+          if let error = agent.error { Text(error).font(.caption).foregroundStyle(.red) }
+          if let response = agent.response {
+            StoryExecutionDisclosure("story.execution.response") {
+              Text(response).font(.caption)
+                #if os(iOS)
+                .textSelection(.enabled)
+                #endif
+            }
+          }
+        }.padding(.vertical, 4)
+      }
+    }
+  }
+}
+
+private struct StoryExecutionDisclosure<Content: View>: View {
+  let title: LocalizedStringKey
+  let content: Content
+
+  init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    #if os(watchOS)
+    NavigationLink {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 12) { content }.padding()
+      }.navigationTitle(title)
+    } label: { Text(title) }
+    #else
+    DisclosureGroup(title) { content }
+    #endif
+  }
+}
+
+private struct StoryExecutionField: View {
+  let title: LocalizedStringKey
+  let value: String
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(title).font(.caption).foregroundStyle(.secondary)
+      Text(value).font(.caption.monospaced())
+        #if os(iOS)
+        .textSelection(.enabled)
+        #endif
     }
   }
 }

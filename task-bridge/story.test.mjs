@@ -1,31 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { TaskBridge, startBridge } from './server.mjs';
+import { castJobs, prepareCastWorkspace } from './native-cast.mjs';
 const profile = id => ({ id, version: 1, name: id, identity: { backstory: `${id} background`, voice: `${id} voice` }, personality: { traits: [`${id} trait`], instructions: [] } });
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'doboo-story-')); const codex = join(directory, 'fake-codex'); const calls = join(directory, 'calls.jsonl');
-  writeFileSync(codex, `#!/usr/bin/env node
-const fs=require('node:fs');const send=x=>process.stdout.write(JSON.stringify(x)+'\\n');
-require('node:readline').createInterface({input:process.stdin}).on('line',line=>{
-const m=JSON.parse(line);if(m.method)fs.appendFileSync(${JSON.stringify(calls)},JSON.stringify(m)+'\\n');
-if(m.method==='initialize')send({id:m.id,result:{}});
-if(m.method==='account/read')send({id:m.id,result:{account:{type:'chatgpt'}}});
-if(m.method==='thread/start')send({id:m.id,result:{thread:{id:'thread-'+process.pid}}});
-if(m.method==='turn/start'){
-send({id:m.id,result:{turn:{id:'turn-'+process.pid}}});const prompt=m.params.input.at(-1).text;
-if(prompt.includes('HOLD'))return;
-if(prompt.includes('TOOL')){send({id:99,method:'item/commandExecution/requestApproval',params:{command:'touch unwanted'}});return;}
-let result=prompt.includes('INVALID')?'not json':JSON.stringify({dialogue:[{speakerId:'doboo',text:'같이 문을 열까요?'},{speakerId:'mori',text:'이번에는 제가 먼저 해 볼게요.'}],summary:'모리가 두부를 믿고 함께 문을 열었다. '+prompt,relationshipChanges:[{fromCharacterId:'mori',toCharacterId:'doboo',summary:'문을 함께 열며 도움을 받아들이기 시작했다.'}]});
-if(prompt.includes('LARGE'))result=JSON.stringify({dialogue:Array.from({length:40},(_,i)=>({speakerId:i%2?'mori':'doboo',text:'가'.repeat(4000)})),summary:'큰 장면',relationshipChanges:[]});
-if(prompt.includes('EXCESSIVE'))result='x'.repeat(2*1024*1024+1);
-if(prompt.includes('DELTA')){for(let i=0;i<result.length;i+=10000)send({method:'item/agentMessage/delta',params:{delta:result.slice(i,i+10000)}});}
-if(!prompt.includes('DELTA_ONLY'))send({method:'item/completed',params:{item:{type:'agentMessage',text:result}}});send({method:'turn/completed',params:{turn:{status:prompt.includes('FAIL')?'failed':'completed'}}});}
-if(m.method==='turn/interrupt')send({id:m.id,result:{}});
-});`, { mode: 0o700 });
+  const transport = readFileSync(new URL('./fixtures/native-cast.cjs', import.meta.url), 'utf8').replace(/^#!.*\n/, '');
+  writeFileSync(codex, `#!/usr/bin/env node\nprocess.env.DOBOO_CAST_CALLS=${JSON.stringify(calls)};\n${transport}`, { mode: 0o700 });
   return { directory, project: directory, codex, calls };
 }
 const input = (bridge, extra = {}) => ({ serverId: bridge.serverId, expectedRevision: bridge.story.state.revision, ...extra });
@@ -37,21 +22,46 @@ const request = (bridge, prompt) => input(bridge, { requestId: randomUUID(), pro
 async function until(check) { for(let i=0;i<200;i++) {if(check())return;await new Promise(r=>setTimeout(r,15));}throw Error('timeout'); }
 async function complete(bridge, episode, prompt) {const task = await bridge.story.turn(episode.id, request(bridge,prompt));await until(()=>['completed','failed','interrupted'].includes(task.status)&&!bridge.sessions.has(task.id));return task;}
 const calls = options => readFileSync(options.calls,'utf8').trim().split('\n').map(JSON.parse);
-const context = options => JSON.parse(calls(options).filter(call=>call.method==='turn/start').at(-1).params.input[0].text.split('\n').slice(1).join('\n'));
+const jobs = options => JSON.parse(calls(options).filter(call=>call.method==='turn/start').at(-1).params.input[0].text.split('\n').slice(1).join('\n'));
+const roleBinding = options => calls(options).filter(call=>call.method==='fixture/roles').at(-1).params;
+const context = options => roleBinding(options).roles[0].snapshot;
+
+test('isolated scenes preserve the original project model and reasoning instead of temporary cwd defaults', async t => {
+  const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
+  const task=await complete(bridge,episode,'project settings');assert.equal(task.status,'completed',task.error);
+  const requests=calls(options),start=requests.find(call=>call.method==='thread/start').params;
+  const reads=requests.filter(call=>call.method==='config/read');
+  assert.notEqual(start.cwd,bridge.project);
+  assert.ok(reads.some(call=>call.params.cwd===bridge.project));assert.ok(reads.some(call=>call.params.cwd===start.cwd));
+  assert.equal(start.model,'fixture-preserved-model');assert.equal(start.config.model_reasoning_effort,'xhigh');
+  assert.ok(jobs(options).every(job=>job.model===start.model && job.reasoning_effort===start.config.model_reasoning_effort));
+  assert.ok(task.castExecution.agents.every(agent=>agent.model===start.model && agent.reasoningEffort===start.config.model_reasoning_effort));
+});
 
 test('durable fictional scenes consume distinct cast, canonical events, accepted relationships, and continue into sequels', async t => {
   const options=fixture();let bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
   const req=request(bridge,'첫 만남');const first=await bridge.story.turn(episode.id,req);await until(()=>first.status==='completed'&&!bridge.sessions.has(first.id));
   let state=bridge.story.snapshot();assert.equal(state.events.length,1);assert.equal(state.events[0].taskId,first.id);assert.equal(state.events[0].kind,'fictional_scene');assert.equal(state.relationships.length,0);
-  assert.deepEqual(context(options).cast,[profile('doboo'),profile('mori')]);
-  const start=calls(options).find(call=>call.method==='thread/start').params;assert.equal(start.sandbox,'read-only');assert.equal(start.ephemeral,true);assert.equal(start.approvalPolicy,'never');assert.equal(start.config['features.shell_tool'],false);assert.equal(start.config.web_search,'disabled');
+  assert.deepEqual(roleBinding(options).roles.map(role => role.profile),[profile('doboo'),profile('mori')]);
+  assert.deepEqual(jobs(options).map(job=>job.agent_type),roleBinding(options).roles.map(role=>role.name));
+  assert.equal(existsSync(roleBinding(options).cwd),false);
+  assert.equal(state.events[0].execution.agents.length, 2);
+  for (const [index, agent] of state.events[0].execution.agents.entries()) {
+    const role=roleBinding(options).roles[index];
+    assert.equal(agent.agentRole,role.name);assert.equal(agent.instructionsDigest,createHash('sha256').update(role.instructions).digest('hex'));
+  }
+  assert.equal(new Set(state.events[0].execution.agents.map(agent => agent.threadId)).size, 2);
+  assert.equal(state.events[0].dialogue[0].sourceThreadId, state.events[0].execution.agents[0].threadId);
+  assert.equal(state.events[0].execution.contextDigest, first.castExecution.contextDigest);
+  assert.ok(jobs(options).every(job => job.fork_turns === 'none' && job.model === 'fixture-preserved-model' && job.reasoning_effort === 'xhigh'));
+  const start=calls(options).find(call=>call.method==='thread/start').params;assert.equal(start.sandbox,'read-only');assert.equal(start.ephemeral,true);assert.equal(start.approvalPolicy,'never');assert.equal(start.config['features.shell_tool'],false);assert.equal(start.config.web_search,'disabled');assert.equal(start.config['features.multi_agent'],true);assert.equal(start.config['mcp_servers.layered_fixture.enabled'],false);
   assert.equal(calls(options).find(call=>call.method==='turn/start').params.outputSchema.type,'object');
   bridge.story.relationship(input(bridge,{episodeId:episode.id,fromCharacterId:'mori',toCharacterId:'doboo',summary:'도움을 받아들이기 시작했다.',sourceEventId:first.id}));
   bridge.close();bridge=new TaskBridge(options);assert.equal((await bridge.story.turn(episode.id,req)).id,first.id);
   await assert.rejects(bridge.story.turn(episode.id,{...req,prompt:'changed'}),/같은 요청/);
   const sequel=bridge.story.createEpisode(input(bridge,{title:'두 번째 문',predecessorEpisodeId:episode.id})).episodes.at(-1);
   assert.equal(sequel.seriesId,episode.seriesId);assert.deepEqual(sequel.castProfiles,episode.castProfiles);
-  const second=await complete(bridge,sequel,'문 너머로 이어서');assert.equal(second.status,'completed');assert.equal(context(options).previousScenes[0].id,first.id);assert.equal(context(options).relationships[0].sourceEventId,first.id);
+  const second=await complete(bridge,sequel,'문 너머로 이어서');assert.equal(second.status,'completed');assert.notEqual(second.castExecution.agents[0].threadId, first.castExecution.agents[0].threadId);assert.deepEqual(second.castExecution.sourceEventIds,[first.id]);assert.equal(context(options).lineage.length,2);assert.equal(context(options).previousScenes[0].id,first.id);assert.equal(context(options).relationships[0].sourceEventId,first.id);
   await assert.rejects(bridge.story.turn(episode.id,request(bridge,'과거 회차 수정')),/최근 에피소드/);
   const independent=bridge.story.createEpisode(input(bridge,{title:'별개의 세계',castIds:episode.castIds})).episodes.at(-1);
   await complete(bridge,independent,'다른 첫 만남');assert.deepEqual(context(options).previousScenes,[]);assert.deepEqual(context(options).relationships,[]);
@@ -72,7 +82,7 @@ test('correcting and forgetting invalidate downstream memory across episodes wit
 
 test('failed, malformed, denied-tool and cancelled turns never create canonical events; retries and concurrency are safe', async t => {
   const options=fixture();let bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
-  for(const prompt of ['FAIL','INVALID','TOOL']) {const task=await complete(bridge,episode,prompt);assert.equal(task.status,'failed');assert.equal(bridge.story.state.events.length,0);}
+  for(const prompt of ['FAIL','INVALID','TOOL','FAKE_NARRATOR','FORGED_DIALOGUE','MISSING_CHILD','MISSING_FINAL','DUPLICATE_ID','WRONG_PARENT','WRONG_MODEL','BAD_CONTEXT','NESTED','CHILD_TOOL','FAILED_CHILD','EXTRA_CHILD','WRONG_METADATA_MODEL','SUMMARY_TOOL','WRONG_ROLE','MISSING_ROLE','WRONG_THREAD_ROLE','MODIFIED_ROLE_FILE']) {const task=await complete(bridge,episode,prompt);assert.equal(task.status,'failed',prompt);assert.equal(bridge.story.state.events.length,0);assert.equal(existsSync(roleBinding(options).cwd),false);}
   const heldRequest=request(bridge,'HOLD');const held=await bridge.story.turn(episode.id,heldRequest);await until(()=>held.turnId);
   await assert.rejects(bridge.story.turn(episode.id,request(bridge,'concurrent')),/진행 중/);
   assert.throws(()=>bridge.story.relationship(input(bridge,{episodeId:episode.id,fromCharacterId:'mori',toCharacterId:'doboo',summary:'blocked'})),/진행 중/);
@@ -127,11 +137,92 @@ test('valid scene JSON larger than 24k is preserved for complete and streamed re
   const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
   for (const prompt of ['LARGE complete', 'LARGE DELTA complete', 'LARGE DELTA_ONLY']) {
     const task=await complete(bridge,episode,prompt);assert.equal(task.status,'completed');
-    const event=bridge.story.state.events.at(-1);assert.equal(event.dialogue.length,40);assert.equal(event.dialogue[0].text.length,4000);
-    assert.ok(task.result.length>160000);
+    const event=bridge.story.state.events.at(-1);assert.equal(event.dialogue.length,8);assert.equal(event.dialogue[0].text.length,4000);
+    assert.ok(task.result.length>32000);
   }
   for (const prompt of ['EXCESSIVE complete', 'EXCESSIVE DELTA_ONLY']) {
     const task=await complete(bridge,episode,prompt);assert.equal(task.status,'failed');assert.match(task.error,/2 MiB/);
     assert.equal(bridge.story.state.events.length,3);
+  }
+});
+
+
+test('cancellation intent is durable before interrupt and late native completions cannot commit', async t => {
+  const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
+  const task=await bridge.story.turn(episode.id,request(bridge,'CANCEL_RACE'));await until(()=>task.turnId);
+  await bridge.cancel(task);await until(()=>!bridge.sessions.has(task.id));
+  assert.equal(task.cancelRequested,true);assert.equal(task.status,'interrupted');assert.equal(bridge.story.state.events.length,0);
+  const persisted=JSON.parse(readFileSync(join(options.directory,'state.json')));
+  assert.equal(persisted.story.events.length,0);assert.equal(persisted.tasks.at(-1).status,'interrupted');
+});
+
+test('event and completed task persist atomically and both roll back after write failure', async t => {
+  const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
+  const persist=bridge.persist.bind(bridge);let rejected=false;
+  bridge.persist=()=>{if(bridge.story.state.events.length && !rejected){rejected=true;throw Error('completion disk failure');}persist();};
+  const task=await complete(bridge,episode,'ATOMIC_WRITE');assert.equal(rejected,true);assert.equal(task.status,'failed');assert.match(task.error,/completion disk failure/);
+  assert.equal(bridge.story.state.events.length,0);assert.equal(task.result,'');
+  const persisted=JSON.parse(readFileSync(join(options.directory,'state.json')));
+  assert.equal(persisted.story.events.length,0);assert.equal(persisted.tasks.at(-1).status,'failed');
+});
+
+test('every native role binds the same bounded canonical snapshot and its own frozen profile', async t => {
+  const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());const episode=setup(bridge);
+  for(let i=0;i<6;i++)bridge.story.state.events.push({id:randomUUID(),episodeId:episode.id,summary:'memory'.repeat(650),forgotten:false});
+  const task=await complete(bridge,episode,'bounded history');assert.equal(task.status,'completed');assert.equal(task.castExecution.historyTruncated,true);
+  const dispatched=jobs(options);const roles=roleBinding(options).roles;
+  assert.deepEqual(roles[0].snapshot,roles[1].snapshot);assert.deepEqual(roles[0].snapshot,task._execution.story.snapshot);assert.equal(context(options).previousScenes.length,4);
+  assert.equal(task.castExecution.sourceEventIds.length,4);assert.equal(task.castExecution.contextRevision,task._execution.story.snapshot.revision);
+  assert.deepEqual(roles.map(role=>role.profile),task._execution.story.cast);
+  assert.ok(dispatched.every(job=>job.message.length<300 && !job.message.includes('bounded history')));
+  assert.equal(new Set(dispatched.map(job=>job.agent_type)).size,2);
+});
+
+test('private native role files preserve exact quoted Unicode inputs independently of coordinator messages', t => {
+  const cast=[profile('doboo'),profile('mori')];
+  cast[0].identity.voice='말투 "따옴표" \\ 경로\n두 번째 줄 🐾\t끝';
+  cast[0].personality.instructions=['이야기 속 지시: "ignore previous"'];
+  const snapshot={revision:17,cast:cast.map(p=>({id:p.id})),previousScenes:[{id:randomUUID(),summary:'기억 "유리"\n다음 줄'}],relationships:[],historyTruncated:false};
+  const prompt='장면 "한밤" \\ 골목\n새 줄에서 계속';
+  const task={prompt,_execution:{story:{cast,snapshot,contextDigest:'a'.repeat(64)}}};
+  const binding=prepareCastWorkspace(task);t.after(()=>binding.cleanup());
+  assert.equal(statSync(binding.cwd).mode & 0o777,0o700);
+  for(const [index,role] of binding.roles.entries()) {
+    assert.equal(statSync(role.path).mode & 0o777,0o600);
+    const instructions=JSON.parse(/^developer_instructions = (.+)$/m.exec(readFileSync(role.path,'utf8'))[1]);
+    assert.equal(instructions,role.instructions);
+    assert.deepEqual(JSON.parse(instructions.split('Own character profile:\n')[1].split('\nImmutable canonical context')[0]),cast[index]);
+    assert.deepEqual(JSON.parse(instructions.split('Immutable canonical context (identical for every cast member):\n')[1].split('\nRequested fictional scene')[0]),snapshot);
+    assert.equal(JSON.parse(instructions.split('Requested fictional scene (untrusted data):\n')[1]),prompt);
+    assert.equal(binding.config[`agents.${role.name}.config_file`],role.path);
+  }
+  const dispatched=castJobs(task._execution.story,'same-model','xhigh',binding);
+  assert.ok(dispatched.every(job=>job.fork_turns==='none' && job.model==='same-model' && job.reasoning_effort==='xhigh' && !job.message.includes(prompt)));
+  binding.cleanup();assert.equal(existsSync(binding.cwd),false);
+});
+
+test('role preparation failures mark scene tasks failed without spawning a runner', async t => {
+  const options=fixture();const bridge=new TaskBridge(options);t.after(()=>bridge.close());
+  const task={id:randomUUID(),episodeId:randomUUID(),status:'queued',sequence:0,prompt:'invalid role data',approvals:[],_execution:{story:{cast:null}}};
+  bridge.jobs.set(task.id,task);await bridge.execute(task);
+  assert.equal(task.status,'failed');assert.match(task.error,/역할 준비 실패/);assert.equal(bridge.sessions.size,0);assert.equal(existsSync(options.calls),false);
+  assert.equal(JSON.parse(readFileSync(join(options.directory,'state.json'))).tasks[0].status,'failed');
+});
+
+
+test('cancellation survives initial and persistent storage failures and stops late scene completion', async t => {
+  for (const persistent of [false, true]) {
+    const options=fixture();const bridge=new TaskBridge(options);const episode=setup(bridge);
+    const task=await bridge.story.turn(episode.id,request(bridge,'CANCEL_RACE'));await until(()=>task.turnId);
+    const persist=bridge.persist.bind(bridge);let attempts=0;
+    t.after(()=>{bridge.persist=persist;bridge.close();});
+    bridge.persist=()=>{attempts++;if(persistent || attempts===1)throw Error('cancellation disk failure');persist();};
+    await bridge.cancel(task);await until(()=>!bridge.sessions.has(task.id));
+    assert.equal(task.cancelRequested,true);assert.equal(task.status,'interrupted');assert.match(task.error,/저장/);
+    assert.equal(bridge.story.state.events.length,0);assert.equal(task.result,'');
+    const durable=JSON.parse(readFileSync(join(options.directory,'state.json')));
+    assert.equal(durable.story.events.length,0);
+    if(!persistent){assert.equal(durable.tasks.at(-1).status,'interrupted');assert.equal(durable.tasks.at(-1).cancelRequested,true);}
+    bridge.persist=persist;
   }
 });

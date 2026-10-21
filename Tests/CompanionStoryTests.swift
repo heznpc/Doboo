@@ -65,4 +65,106 @@ struct CompanionStoryTests {
     #expect(state.relationships[0].deleted == true)
     #expect(try JSONDecoder().decode(StoryState.self, from: JSONEncoder().encode(state)) == state)
   }
+
+  @Test func legacySceneAndTaskDoNotGainExecutionEvidence() throws {
+    let event = try JSONDecoder().decode(StoryEvent.self, from: Data(#"""
+    {"id":"event","episodeId":"episode","taskId":"task","summary":"A saved scene",
+     "forgotten":false,"createdAt":"now","dialogue":[{"speakerId":"a","text":"Hello"}],
+     "relationshipChanges":[]}
+    """#.utf8))
+    let task = try JSONDecoder().decode(CompanionTask.self, from: Data(#"""
+    {"id":"task","prompt":"Continue","character":{"id":"a","version":1,"name":"A"},
+     "project":"story","status":"completed","sequence":1,"result":"Hello","activity":"",
+     "approvals":[],"commands":[]}
+    """#.utf8))
+    #expect(event.castExecution == nil)
+    #expect(task.castExecution == nil)
+    #expect(try JSONDecoder().decode(StoryEvent.self, from: JSONEncoder().encode(event)) == event)
+    #expect(try JSONDecoder().decode(CompanionTask.self, from: JSONEncoder().encode(task)) == task)
+  }
+
+  @Test func executionReceiptPreservesOriginalResponsesAndOptionalRuntimeEvidence() throws {
+    let data = Data(#"""
+    {"id":"task","prompt":"Continue","character":{"id":"a","version":7,"name":"A"},
+     "project":"story","status":"completed","sequence":2,"result":"A scene","activity":"",
+     "approvals":[],"commands":[],"episodeId":"episode","castExecution":{
+       "mode":"native_subagents","coordinatorThreadId":"coordinator","contextRevision":12,"contextDigest":"scene-digest",
+       "sourceEventIds":["earlier-event"],"relationshipIds":["relationship"],"historyTruncated":true,
+       "agents":[
+         {"characterId":"a","profileVersion":7,"threadId":"child-a","status":"completed",
+          "rawResult":"  **그대로**\n두 번째 줄.  ",
+          "parentThreadId":"coordinator","turnId":"turn-a","finalMessageId":"message-a",
+          "model":"configured-model","reasoningEffort":"high","agentRole":"scene-role-a","instructionsDigest":"instructions-a"},
+         {"characterId":"b","profileVersion":2,"threadId":"child-b","status":"completed",
+          "rawResult":"Hello"}
+       ]
+     }}
+    """#.utf8)
+    let task = try JSONDecoder().decode(CompanionTask.self, from: data)
+    let execution = try #require(task.castExecution)
+    #expect(execution.hasCharacterAgents)
+    #expect(execution.coordinatorThreadId == "coordinator")
+    #expect(execution.contextRevision == 12)
+    #expect(execution.contextDigest == "scene-digest")
+    #expect(execution.sourceEventIds == ["earlier-event"])
+    #expect(execution.relationshipIds == ["relationship"])
+    #expect(execution.historyTruncated == true)
+    #expect(execution.agents.map(\.threadId) == ["child-a", "child-b"])
+    #expect(execution.agents[0].characterVersion == 7)
+    #expect(execution.agents[0].response == "  **그대로**\n두 번째 줄.  ")
+    #expect(execution.agents[0].parentThreadId == "coordinator")
+    #expect(execution.agents[0].turnId == "turn-a")
+    #expect(execution.agents[0].finalMessageId == "message-a")
+    #expect(execution.agents[0].model == "configured-model")
+    #expect(execution.agents[0].reasoningEffort == "high")
+    #expect(execution.agents[0].agentRole == "scene-role-a")
+    #expect(execution.agents[0].instructionsDigest == "instructions-a")
+    #expect(execution.agents[1].agentRole == nil)
+    #expect(execution.agents[1].model == nil)
+    #expect(execution.agents[1].reasoningEffort == nil)
+    #expect(try JSONDecoder().decode(CompanionTask.self, from: JSONEncoder().encode(task)) == task)
+
+    let event = StoryEvent(id: "event", episodeId: "episode", taskId: task.id,
+      summary: "Reviewed memory", forgotten: false, createdAt: "now", dialogue: [
+        StoryDialogue(speakerId: "a", text: "그대로", sourceThreadId: "child-a",
+          sourceTurnId: "turn-a", sourceMessageId: "message-a", sourceIndex: 0)
+      ],
+      relationshipChanges: [], castExecution: execution)
+    let eventData = try JSONEncoder().encode(event)
+    let eventPayload = try #require(JSONSerialization.jsonObject(with: eventData) as? [String: Any])
+    #expect(eventPayload["execution"] != nil)
+    #expect(eventPayload["castExecution"] == nil)
+    let restored = try JSONDecoder().decode(StoryEvent.self, from: eventData)
+    #expect(restored.castExecution == execution)
+    #expect(restored.castExecution?.agents[0].response == "  **그대로**\n두 번째 줄.  ")
+    #expect(restored.dialogue[0].sourceThreadId == "child-a")
+    #expect(restored.dialogue[0].sourceTurnId == "turn-a")
+    #expect(restored.dialogue[0].sourceMessageId == "message-a")
+    #expect(restored.dialogue[0].sourceIndex == 0)
+  }
+
+  @Test func partialExecutionDecodesWithoutAResponseOrOptionalMetadata() throws {
+    let execution = try JSONDecoder().decode(StoryCastExecution.self, from: Data(#"""
+    {"mode":"native_subagents","coordinatorThreadId":"coordinator","agents":[
+      {"characterId":"a","profileVersion":1,"threadId":"child-a","status":"running"},
+      {"characterId":"b","profileVersion":1,"threadId":"child-b","status":"failed","error":"Runner disconnected"},
+      {"characterId":"c","profileVersion":1,"status":"queued"}
+    ]}
+    """#.utf8))
+    #expect(execution.hasCharacterAgents)
+    #expect(execution.contextRevision == nil)
+    #expect(execution.contextDigest == nil)
+    #expect(execution.agents[0].response == nil)
+    #expect(execution.agents[0].statusKey == "story.execution.running")
+    #expect(execution.agents[1].statusKey == "story.execution.failed")
+    #expect(execution.agents[1].error == "Runner disconnected")
+    #expect(execution.agents[2].threadId == nil)
+    #expect(execution.agents[2].turnId == nil)
+    #expect(execution.agents[2].finalMessageId == nil)
+    #expect(execution.agents[2].statusKey == "story.execution.queued")
+    #expect(!StoryCastExecution(mode: "legacy", coordinatorThreadId: "coordinator",
+      agents: execution.agents).hasCharacterAgents)
+    #expect(!StoryCastExecution(mode: "native_subagents", coordinatorThreadId: "coordinator",
+      agents: []).hasCharacterAgents)
+  }
 }

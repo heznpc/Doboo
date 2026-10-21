@@ -30,6 +30,7 @@ struct CompanionTask: Codable, Identifiable, Equatable, Sendable {
   let commands: [Command]
   var continuity: TaskContinuity? = nil
   var episodeId: String? = nil
+  var castExecution: StoryCastExecution? = nil
   var finished: Bool { ["completed", "failed", "interrupted"].contains(status) }
   var statusKey: String {
     switch status {

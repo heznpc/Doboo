@@ -305,3 +305,26 @@
 "story.keepReviewedDraft" = "확인했어요 · 초안 유지";
 "story.useLatest" = "최신 내용으로 초안 바꾸기";
 "story.reviewChanged" = "확인하는 동안 다시 바뀌었습니다. 최신 내용을 다시 불러와 주세요.";
+
+"story.execution.queued" = "응답 대기 중";
+"story.execution.running" = "응답을 준비하는 중";
+"story.execution.completed" = "응답 준비됨";
+"story.execution.failed" = "응답하지 못함";
+"story.execution.saved" = "저장된 응답 상태";
+"story.execution.details" = "캐릭터 실행 상세";
+"story.execution.coordinator" = "장면 진행 스레드";
+"story.execution.version" = "캐릭터 버전";
+"story.execution.thread" = "캐릭터 스레드";
+"story.execution.context" = "문맥 다이제스트";
+"story.execution.model" = "모델";
+"story.execution.effort" = "추론 수준";
+"story.execution.response" = "원문 응답";
+"story.execution.interrupted" = "응답 중단됨";
+"story.execution.unverified" = "이 장면에는 캐릭터별 독립 실행 기록이 없습니다.";
+"story.execution.memories" = "사용한 사건 기억 수";
+"story.execution.relationships" = "사용한 관계 수";
+"story.execution.truncated" = "입력 길이 제한으로 최근 사건 기억만 전달했습니다.";
+"story.execution.turn" = "응답 실행 ID";
+"story.execution.message" = "원문 메시지 ID";
+"story.execution.role" = "검증한 캐릭터 역할";
+"story.execution.instructions" = "캐릭터 설정·문맥 다이제스트";

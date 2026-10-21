@@ -305,3 +305,26 @@
 "story.keepReviewedDraft" = "Reviewed · keep my draft";
 "story.useLatest" = "Replace draft with latest version";
 "story.reviewChanged" = "The story changed again during review. Load the latest version once more.";
+
+"story.execution.queued" = "Waiting to respond";
+"story.execution.running" = "Preparing a response";
+"story.execution.completed" = "Response ready";
+"story.execution.failed" = "Could not respond";
+"story.execution.saved" = "Saved response status";
+"story.execution.details" = "Character execution details";
+"story.execution.coordinator" = "Scene coordinator thread";
+"story.execution.version" = "Character version";
+"story.execution.thread" = "Character thread";
+"story.execution.context" = "Context digest";
+"story.execution.model" = "Model";
+"story.execution.effort" = "Reasoning effort";
+"story.execution.response" = "Original response";
+"story.execution.interrupted" = "Response interrupted";
+"story.execution.unverified" = "This scene has no independent character execution record.";
+"story.execution.memories" = "Event memories used";
+"story.execution.relationships" = "Relationships used";
+"story.execution.truncated" = "Only recent event memories were supplied because of the input length limit.";
+"story.execution.turn" = "Response turn ID";
+"story.execution.message" = "Original message ID";
+"story.execution.role" = "Verified character role";
+"story.execution.instructions" = "Character instructions digest";

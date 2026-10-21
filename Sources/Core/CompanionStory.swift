@@ -47,12 +47,69 @@ struct StoryRelationship: Codable, Identifiable, Equatable, Sendable {
 struct StoryDialogue: Codable, Equatable, Sendable {
   let speakerId: String
   let text: String
+  var sourceThreadId: String? = nil
+  var sourceTurnId: String? = nil
+  var sourceMessageId: String? = nil
+  var sourceIndex: Int? = nil
 }
 
 struct StoryRelationshipChange: Codable, Equatable, Sendable {
   let fromCharacterId: String
   let toCharacterId: String
   let summary: String
+}
+
+/// Runtime receipts are distinct from the editable scene dialogue and memory.
+struct StoryCastExecution: Codable, Equatable, Sendable {
+  struct Agent: Codable, Identifiable, Equatable, Sendable {
+    let characterId: String
+    let characterVersion: Int64
+    let threadId: String?
+    let status: String
+    let response: String?
+    var parentThreadId: String? = nil
+    var turnId: String? = nil
+    var finalMessageId: String? = nil
+    var model: String? = nil
+    var reasoningEffort: String? = nil
+    var error: String? = nil
+    var agentRole: String? = nil
+    var instructionsDigest: String? = nil
+
+    enum CodingKeys: String, CodingKey {
+      case characterId, threadId, status, parentThreadId, turnId, finalMessageId
+      case model, reasoningEffort, error, agentRole, instructionsDigest
+      case characterVersion = "profileVersion"
+      case response = "rawResult"
+    }
+
+    var id: String { characterId }
+    var statusKey: String {
+      switch status {
+      case "queued", "running", "completed", "failed", "interrupted": "story.execution.\(status)"
+      default: "task.status.unknown"
+      }
+    }
+    var statusSymbol: String {
+      switch status {
+      case "completed": "checkmark.circle"
+      case "failed": "exclamationmark.circle"
+      case "interrupted": "stop.circle"
+      default: "clock"
+      }
+    }
+  }
+
+  let mode: String
+  let coordinatorThreadId: String
+  let agents: [Agent]
+  var contextRevision: Int? = nil
+  var contextDigest: String? = nil
+  var sourceEventIds: [String]? = nil
+  var relationshipIds: [String]? = nil
+  var historyTruncated: Bool? = nil
+
+  var hasCharacterAgents: Bool { mode == "native_subagents" && !agents.isEmpty }
 }
 
 struct StoryEvent: Codable, Identifiable, Equatable, Sendable {
@@ -65,6 +122,13 @@ struct StoryEvent: Codable, Identifiable, Equatable, Sendable {
   let dialogue: [StoryDialogue]
   var excludedFromContext: Bool? = nil
   let relationshipChanges: [StoryRelationshipChange]
+  var castExecution: StoryCastExecution? = nil
+
+  enum CodingKeys: String, CodingKey {
+    case id, episodeId, taskId, summary, forgotten, createdAt, dialogue
+    case excludedFromContext, relationshipChanges
+    case castExecution = "execution"
+  }
 }
 
 struct StoryEpisode: Codable, Identifiable, Equatable, Sendable {
