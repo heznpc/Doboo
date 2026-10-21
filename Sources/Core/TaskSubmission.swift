@@ -47,7 +47,11 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   func encodedRequest() throws -> Data {
     guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ValidationError.emptyPrompt }
     guard prompt.utf16.count <= 8000 else { throw ValidationError.promptTooLong }
-    let body = try JSONEncoder().encode(self)
+    // Reconstructing a pending request must retain its wire representation;
+    // JSONEncoder's default object-key order can change between encodes.
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let body = try encoder.encode(self)
     guard body.count <= 20000 else { throw ValidationError.requestTooLarge }
     return body
   }

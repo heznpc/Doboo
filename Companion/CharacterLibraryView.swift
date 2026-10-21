@@ -125,21 +125,7 @@ struct CharacterDetailView: View {
           Text(library.transferStatus).font(.footnote).foregroundStyle(.secondary)
             .accessibilityIdentifier("character.transferStatus")
         }
-        GroupBox("character.personality") {
-          VStack(alignment: .leading, spacing: 12) {
-            Text(pack.personality.traits.joined(separator: " · ")).font(.headline)
-            Text(pack.identity.voice).foregroundStyle(.secondary)
-            ForEach(Array(pack.personality.instructions.enumerated()), id: \.offset) { _, instruction in
-              Label { Text(instruction) } icon: { Image(systemName: "circle.fill").font(.system(size: 5)) }
-            }
-          }.font(.subheadline).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-        }
-        if !pack.identity.backstory.isEmpty {
-          VStack(alignment: .leading, spacing: 8) {
-            Text("character.story").font(.headline)
-            Text(pack.identity.backstory).foregroundStyle(.secondary)
-          }
-        }
+        CharacterSettingsView(pack: pack)
         if let exportedURL {
           ShareLink(item: exportedURL) { Label("library.share", systemImage: "square.and.arrow.up") }
             .buttonStyle(.borderedProminent)

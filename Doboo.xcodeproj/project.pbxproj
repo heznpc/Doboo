@@ -30,11 +30,14 @@
 		436AF1EA9F7C4BE52FFB5FE3 /* CharacterLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */; };
 		48E5665EE00D00143AD3899F /* CharacterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34879D12FFDD126C89037EE6 /* CharacterStore.swift */; };
 		4B4056CE0F14A7F67AE3F966 /* BlobGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */; };
+		4C2CFDED6B13C9425EC08DFF /* CharacterLegacyImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD978E5C87982D7314AD73D /* CharacterLegacyImport.swift */; };
 		4D0612B3CABF7CA74CFD7601 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0C7BC73C60EEA8334FF1DDC0 /* Assets.xcassets */; };
 		5233BE82182A9C64D2D525EF /* Characters in Resources */ = {isa = PBXBuildFile; fileRef = FE7C55DAA1AE9D6D8BBE87F1 /* Characters */; };
 		58920BA32FD5B892F4FE4008 /* CharacterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34879D12FFDD126C89037EE6 /* CharacterStore.swift */; };
 		59BC976B34D332E525A60B09 /* DobooCharacterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46CBB43E5FAFD71275C5C792 /* DobooCharacterView.swift */; };
+		59E9F36CF87F1F00853B9633 /* CharacterLegacyImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 623D57E3CF25967EE13F6618 /* CharacterLegacyImportTests.swift */; };
 		5C167CA1C7463486069E1E46 /* Characters in Resources */ = {isa = PBXBuildFile; fileRef = FE7C55DAA1AE9D6D8BBE87F1 /* Characters */; };
+		60324C8428E28A14051D656C /* CharacterSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E73EA8257C86EC5FC890FB /* CharacterSettingsView.swift */; };
 		634030C85319BBDFB65BC8F4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8A5C9D909C460281796B9B54 /* PrivacyInfo.xcprivacy */; };
 		64F0668D22BAACE94BE1F608 /* CompanionTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */; };
 		658CF9E72DEB919925AAF271 /* DobooWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = E4A2AC487D2DA44992DD65B7 /* DobooWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -49,6 +52,7 @@
 		88A697F22522D90943606018 /* Doboo.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B35D9BE8ACCE00169C708B1D /* Doboo.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		93D59C0F149703294F825DA7 /* CharacterLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC2C0BB1616A05C8A324AD0 /* CharacterLibrary.swift */; };
 		947622225AFB98A668AC49D2 /* CompanionTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */; };
+		9E05256CD79B2F77A190BEAE /* CharacterLegacyImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD978E5C87982D7314AD73D /* CharacterLegacyImport.swift */; };
 		A0343D1E68F8933F45F9A286 /* CompanionMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */; };
 		A2F23D1A8E8EB717828A4D4D /* DobooWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = D889F524E2F281D0FC8B55B1 /* DobooWidgets.swift */; };
 		A4696D6F844B0FBCCEE310BC /* SpriteFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */; };
@@ -70,6 +74,7 @@
 		D2069E12AD3A917BF6A85401 /* SoftBlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D8647E0AAC6001E7FE4B03 /* SoftBlobShape.swift */; };
 		D252C822050243355654E762 /* CharacterPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */; };
 		D5F54EAFC4DC55ACAE94E661 /* BlobInteractionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */; };
+		EBBFEA0651022C790D1635DF /* CharacterSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97ED22604F23AAAC6999D96 /* CharacterSettingsUITests.swift */; };
 		ECF8A2CC31B977A2EE44070F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6F5CE5A982C654D3D733F7C0 /* Localizable.strings */; };
 		EE7771D7664AE8D14D202A1A /* SpriteAtlas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */; };
 		F03DCAD30345056B453E2EB6 /* CharacterPack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */; };
@@ -140,6 +145,7 @@
 		12FD1CF5D4B2BB37BF3A91FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2020575B9342E6A4FEFCEDDF /* TaskSubmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSubmission.swift; sourceTree = "<group>"; };
 		21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterPackTests.swift; sourceTree = "<group>"; };
+		2AD978E5C87982D7314AD73D /* CharacterLegacyImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterLegacyImport.swift; sourceTree = "<group>"; };
 		34879D12FFDD126C89037EE6 /* CharacterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterStore.swift; sourceTree = "<group>"; };
 		34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotion.swift; sourceTree = "<group>"; };
 		3BDBEC79F923A1D0BE2EE9B0 /* TaskConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskConnection.swift; sourceTree = "<group>"; };
@@ -152,6 +158,7 @@
 		58D509A3F3283E56F28B8E21 /* TaskSubmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSubmissionTests.swift; sourceTree = "<group>"; };
 		5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometryTests.swift; sourceTree = "<group>"; };
 		61613E1D9B83F7A657DA4214 /* DobooCompanionUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DobooCompanionUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		623D57E3CF25967EE13F6618 /* CharacterLegacyImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterLegacyImportTests.swift; sourceTree = "<group>"; };
 		6473EA39B37DF21A887B7A2D /* SpriteFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteFrame.swift; sourceTree = "<group>"; };
 		69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobGeometry.swift; sourceTree = "<group>"; };
 		73D08216B704D808CCB0AE39 /* TaskDashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDashboard.swift; sourceTree = "<group>"; };
@@ -164,6 +171,7 @@
 		8C4836F548CA0EABDE5B5700 /* CompanionTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionTask.swift; sourceTree = "<group>"; };
 		9B2F620C724D318EAAAC6B72 /* SpriteAtlas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpriteAtlas.swift; sourceTree = "<group>"; };
 		A8CD68DF1B1B07D8D75043B3 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A97ED22604F23AAAC6999D96 /* CharacterSettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterSettingsUITests.swift; sourceTree = "<group>"; };
 		B3192B768E5A064F7205B25E /* DobooApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooApp.swift; sourceTree = "<group>"; };
 		B35D9BE8ACCE00169C708B1D /* Doboo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doboo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6F451DD06473CB6CE562B62 /* CompanionMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotionTests.swift; sourceTree = "<group>"; };
@@ -171,6 +179,7 @@
 		BF984DCF26A4159EE4BD735C /* DobooLibrary.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DobooLibrary.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BFC7BE5FC7F16C66564BC2BD /* DobooWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DobooWidgets.entitlements; sourceTree = "<group>"; };
 		BFD53511DA444E06AD64519C /* DobooTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DobooTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C1E73EA8257C86EC5FC890FB /* CharacterSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterSettingsView.swift; sourceTree = "<group>"; };
 		CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterLibraryView.swift; sourceTree = "<group>"; };
 		CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFlowUITests.swift; sourceTree = "<group>"; };
 		D889F524E2F281D0FC8B55B1 /* DobooWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DobooWidgets.swift; sourceTree = "<group>"; };
@@ -228,6 +237,7 @@
 		71D3B683603B103AB6E1CF31 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				A97ED22604F23AAAC6999D96 /* CharacterSettingsUITests.swift */,
 				4786E63F588E9AE78910ACDF /* CompanionInteractionUITests.swift */,
 				CB22E8BA80826761BB266691 /* TaskFlowUITests.swift */,
 			);
@@ -240,6 +250,7 @@
 				12FD1CF5D4B2BB37BF3A91FD /* Assets.xcassets */,
 				80CE7E1C6833548894CC51B7 /* CharacterEditorView.swift */,
 				CA60277CFF8870F8E33D5D5A /* CharacterLibraryView.swift */,
+				C1E73EA8257C86EC5FC890FB /* CharacterSettingsView.swift */,
 				EE724A48ACE837340A4530E9 /* CompanionApp.swift */,
 				58C091D5393D9F34382C30C2 /* CompanionHomeView.swift */,
 				DF5A5BEF7CC707448F90CEB0 /* Info.plist */,
@@ -252,6 +263,7 @@
 			children = (
 				5B6E6C6B695C6B98C2F04FB6 /* BlobGeometryTests.swift */,
 				F060F02A3D8778E8F6833572 /* BlobInteractionStateTests.swift */,
+				623D57E3CF25967EE13F6618 /* CharacterLegacyImportTests.swift */,
 				21C15BB34646D3CF3B74BC84 /* CharacterPackTests.swift */,
 				B6F451DD06473CB6CE562B62 /* CompanionMotionTests.swift */,
 				58D509A3F3283E56F28B8E21 /* TaskSubmissionTests.swift */,
@@ -291,6 +303,7 @@
 				69DDD52E82DE224D4F776FCF /* BlobGeometry.swift */,
 				4B3E0DD351CB62D900D8FF84 /* BlobInteractionState.swift */,
 				5196D1F89BCB2695670EADF8 /* CharacterExports.swift */,
+				2AD978E5C87982D7314AD73D /* CharacterLegacyImport.swift */,
 				764C8AD2FA43512672C3AAA3 /* CharacterPack.swift */,
 				34879D12FFDD126C89037EE6 /* CharacterStore.swift */,
 				34AB9F3174C38E768EAAED82 /* CompanionMotion.swift */,
@@ -504,6 +517,7 @@
 			files = (
 				2ECC7A7278081FDB311CD02E /* BlobGeometryTests.swift in Sources */,
 				1B376840B2E69076A0470C32 /* BlobInteractionStateTests.swift in Sources */,
+				59E9F36CF87F1F00853B9633 /* CharacterLegacyImportTests.swift in Sources */,
 				C2621BA56E37E4C0B0348E1B /* CharacterPackTests.swift in Sources */,
 				337A1F16B527037A5F57229E /* CompanionMotionTests.swift in Sources */,
 				17209462F3B0EA225C521C5C /* TaskSubmissionTests.swift in Sources */,
@@ -514,6 +528,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBBFEA0651022C790D1635DF /* CharacterSettingsUITests.swift in Sources */,
 				3A94EFB8C304887E90291F4F /* CompanionInteractionUITests.swift in Sources */,
 				A9FCEE585422EAE6591242A6 /* TaskFlowUITests.swift in Sources */,
 			);
@@ -527,9 +542,11 @@
 				2173FD8413C9D3AEB884C965 /* BlobInteractionState.swift in Sources */,
 				FB392CBDC5FBCE428320F3E2 /* CharacterEditorView.swift in Sources */,
 				05B1F731F858F79DCF967375 /* CharacterExports.swift in Sources */,
+				4C2CFDED6B13C9425EC08DFF /* CharacterLegacyImport.swift in Sources */,
 				436AF1EA9F7C4BE52FFB5FE3 /* CharacterLibrary.swift in Sources */,
 				AFE0597A0B20420EB5B29E99 /* CharacterLibraryView.swift in Sources */,
 				B1950DA79032A2684AC8CEDD /* CharacterPack.swift in Sources */,
+				60324C8428E28A14051D656C /* CharacterSettingsView.swift in Sources */,
 				48E5665EE00D00143AD3899F /* CharacterStore.swift in Sources */,
 				BC08D40CE393F3B94C3188FB /* CharacterTransfer.swift in Sources */,
 				31910E39C8623D8336F5D330 /* CompanionApp.swift in Sources */,
@@ -554,6 +571,7 @@
 				3BFCE89523F298718A0C0844 /* BlobGeometry.swift in Sources */,
 				A95A446CA9C3A3F3C3DA562C /* BlobInteractionState.swift in Sources */,
 				3BCCD07336A9861E46ED34CD /* CharacterExports.swift in Sources */,
+				9E05256CD79B2F77A190BEAE /* CharacterLegacyImport.swift in Sources */,
 				93D59C0F149703294F825DA7 /* CharacterLibrary.swift in Sources */,
 				F03DCAD30345056B453E2EB6 /* CharacterPack.swift in Sources */,
 				58920BA32FD5B892F4FE4008 /* CharacterStore.swift in Sources */,

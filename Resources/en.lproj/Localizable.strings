@@ -229,3 +229,28 @@
 "continuity.connectionBusy" = "Wait for memory saving or Watch connection verification to finish before changing computers.";
 "continuity.connectionChanged" = "The computer connection changed. Close this screen and reopen it to edit memory for the new connection.";
 "continuity.appearanceTransferHelp" = "This sends the character’s appearance to Watch. Work and personal memory are shared by connecting both devices to the same computer.";
+
+// Structured character settings
+"character.settings" = "Character settings";
+"character.identity" = "Appearance, backstory & voice";
+"character.appearanceDescription" = "Appearance description";
+"character.perspective" = "Perspective";
+"character.principles" = "Principles";
+"character.workStyle" = "Working style";
+"character.initiative" = "Taking initiative";
+"character.updates" = "Sharing progress";
+"character.recovery" = "Responding to setbacks";
+"character.examples" = "Situations & dialogue";
+"character.situation" = "Situation";
+"character.response" = "Character response";
+"character.otherInstructions" = "Additional instructions";
+"character.notSet" = "Not set";
+"character.source" = "Imported from";
+"character.sourceHelp" = "This records the imported source. Edits create a Doboo revision; the source is not synchronized.";
+"character.noSource" = "No import source recorded. Existing settings are shown as saved.";
+"editor.importLegacy" = "Load Troupe / Innercast source";
+"editor.importLegacyHelp" = "Loads the original JSON or migration report into this draft, replacing its character settings. Enter a creator first. Nothing is saved until you tap Save.";
+"editor.creatorRequired" = "Enter a creator before loading a source.";
+"editor.identityMismatch" = "This source belongs to a different character ID. Create a new character to import it.";
+"editor.addPrinciple" = "Add principle";
+"editor.addExample" = "Add situation & response";

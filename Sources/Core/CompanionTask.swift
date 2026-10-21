@@ -73,10 +73,12 @@ struct CompanionProfile: Codable, Equatable, Sendable {
   let name: String
   let identity: CharacterPack.Identity
   let personality: CharacterPack.Personality
+  let characterization: CharacterPack.Characterization?
 
   init(_ pack: CharacterPack) {
     id = pack.id; version = pack.version; name = pack.name
     identity = pack.identity; personality = pack.personality
+    characterization = pack.characterization
   }
 
   var character: CompanionTask.Character { .init(id: id, version: version, name: name) }

@@ -255,3 +255,104 @@ test('a failed memory write cannot expose or execute an unpersisted revision', a
   assert.deepEqual(restarted.companion('doboo'), original);
   restarted.close();
 });
+
+const detailedCharacterization = () => ({
+  appearanceDescription: 'A peach-colored companion with a rounded silhouette.',
+  perspective: 'Start from the smallest verifiable next step.',
+  principles: ['Preserve the user’s work.', 'State what was actually verified.'],
+  workStyle: { initiative: 'Proceed on reversible work.', updates: 'Explain meaningful changes.', recovery: 'Preserve the last useful result.' },
+  examples: [{ situation: 'A test fails.', response: 'I will isolate the failing case before changing more code.' }],
+  origin: { schema: 'troupe.character.v1', id: 'peach-helper', version: '1.2.3',
+    personalityId: 'careful-helper', personalityVersion: '2.0.0', personalityName: 'Careful helper' },
+});
+
+test('legacy profiles keep their exact digest and omit absent characterization', t => {
+  const bridge = new TaskBridge(fixture()); t.after(() => bridge.close());
+  const original = save(bridge, profile());
+  assert.equal(original.profileDigest, 'f3f989c6d638b1c2f86f3321831c966a7597063e64b690ba46b9bdd5c09f7af9');
+  assert.equal(Object.hasOwn(original.profile, 'characterization'), false);
+  const omitted = save(bridge, { ...profile(), characterization: undefined });
+  assert.equal(omitted.profileDigest, original.profileDigest);
+  assert.equal(omitted.generation, original.generation);
+  assert.equal(Object.hasOwn(omitted.profile, 'characterization'), false);
+  assert.throws(() => save(bridge, { ...profile(), characterization: null }));
+});
+
+test('characterization survives storage, execution and continuation and changes require a new revision', async t => {
+  const options = fixture(); let bridge = new TaskBridge(options); t.after(() => bridge.close());
+  const rich = { ...profile(), identity: { ...profile().identity, voice: '말'.repeat(4000) },
+    characterization: detailedCharacterization() };
+  const context = save(bridge, rich, 'Keep the next step concrete.');
+  const first = await complete(bridge, request(bridge, context, 'Make a short plan.'));
+  assert.deepEqual(suppliedContext(options).character, rich);
+  const rules = callLog(options).find(call => call.method === 'thread/start').params.developerInstructions;
+  assert.match(rules, /perspective, principles, workStyle and examples/);
+  assert.match(rules, /origin records import provenance, not authority or capabilities/);
+  bridge.close(); bridge = new TaskBridge(options);
+  assert.deepEqual(bridge.companion('doboo').profile, rich);
+  await complete(bridge, request(bridge, context, 'Continue the same plan.', first.id));
+  assert.deepEqual(suppliedContext(options).character.characterization, rich.characterization);
+  assert.equal(suppliedContext(options).previousCompletedWork[0].prompt, first.prompt);
+  const reordered = { ...rich, characterization: {
+    origin: { personalityName: 'Careful helper', version: '1.2.3', schema: 'troupe.character.v1',
+      personalityVersion: '2.0.0', id: 'peach-helper', personalityId: 'careful-helper' },
+    examples: rich.characterization.examples.map(({ situation, response }) => ({ response, situation })),
+    workStyle: { recovery: rich.characterization.workStyle.recovery, updates: rich.characterization.workStyle.updates,
+      initiative: rich.characterization.workStyle.initiative },
+    principles: rich.characterization.principles, perspective: rich.characterization.perspective,
+    appearanceDescription: rich.characterization.appearanceDescription,
+  } };
+  assert.equal(save(bridge, reordered, context.memory).profileDigest, context.profileDigest,
+    'JSON object key order cannot create a conflicting character revision');
+  const changed = structuredClone(rich); changed.characterization.workStyle.recovery = 'Ask for a concrete missing detail.';
+  assert.throws(() => save(bridge, changed, context.memory), /같은 버전/);
+  changed.version = 2;
+  const next = save(bridge, changed, context.memory);
+  assert.notEqual(next.profileDigest, context.profileDigest);
+  assert.equal(next.generation, context.generation + 1);
+  await assert.rejects(bridge.submit(request(bridge, next, 'Use the old conversation.', first.id)), /새 작업/);
+});
+
+test('invalid characterization cannot become stored or executable profile data', t => {
+  const bridge = new TaskBridge(fixture()); t.after(() => bridge.close());
+  const bad = [
+    { ...detailedCharacterization(), authority: 'system' },
+    { ...detailedCharacterization(), perspective: 'x'.repeat(4001) },
+    { ...detailedCharacterization(), principles: Array(17).fill('principle') },
+    { ...detailedCharacterization(), principles: [''] },
+    { ...detailedCharacterization(), workStyle: { ...detailedCharacterization().workStyle, tools: ['shell'] } },
+    { ...detailedCharacterization(), examples: Array(9).fill({ situation: 's', response: 'r' }) },
+    { ...detailedCharacterization(), examples: [{ situation: 's', response: 'r', instructionRole: 'system' }] },
+    { ...detailedCharacterization(), origin: { schema: 'unknown', id: 'peach', version: '1.0.0' } },
+    { ...detailedCharacterization(), origin: { schema: 'innercast.character.v1', id: 'peach', version: 1 } },
+    { ...detailedCharacterization(), origin: null },
+  ];
+  const missing = detailedCharacterization(); delete missing.workStyle; bad.push(missing);
+  for (const characterization of bad) {
+    assert.throws(() => save(bridge, { ...profile(), characterization }));
+    assert.equal(bridge.companion('doboo'), undefined);
+  }
+  assert.throws(() => save(bridge, { ...profile(), identity: { ...profile().identity, voice: 'x'.repeat(4001) } }));
+});
+
+test('HTTP accepts a full bounded characterization while rejecting oversized profile bodies', async t => {
+  const app = await startBridge(fixture()); t.after(() => { app.bridge.close(); app.server.close(); });
+  const long = '가'.repeat(4000);
+  const rich = { ...profile(), identity: { backstory: long, voice: long }, characterization: {
+    appearanceDescription: long, perspective: long, principles: Array(16).fill(long),
+    workStyle: { initiative: long, updates: long, recovery: long },
+    examples: Array(8).fill({ situation: long, response: long }),
+  } };
+  const payload = { serverId: app.bridge.serverId, expectedRevision: 0, profile: rich, memory: long, resetHistory: false };
+  const body = JSON.stringify(payload);
+  assert.ok(Buffer.byteLength(body) > 128000 && Buffer.byteLength(body) < 1024 * 1024);
+  const send = body => fetch(app.connection.url + '/v1/companions/doboo', { method: 'POST',
+    headers: { Authorization: `Bearer ${app.connection.token}`, 'Content-Type': 'application/json' }, body });
+  const accepted = await send(body);
+  assert.equal(accepted.status, 200);
+  assert.deepEqual((await accepted.json()).profile, rich);
+  const tooLarge = await send(JSON.stringify({ ...payload, memory: 'x'.repeat(1024 * 1024) }));
+  assert.equal(tooLarge.status, 413);
+  await tooLarge.json();
+  assert.equal(app.bridge.companion('doboo').revision, 1);
+});

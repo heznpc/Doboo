@@ -7,6 +7,7 @@ struct CharacterEditorView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var draft: CharacterPack
   @State private var importingSprite = false
+  @State private var importingLegacy = false
   @State private var spriteName: String?
   @State private var spriteLayout: CharacterPack.Appearance.Sprite.Layout
   @State private var errorMessage: String?
@@ -37,13 +38,25 @@ struct CharacterEditorView: View {
     NavigationStack {
       Form {
         identitySection
-        Section("editor.story") {
+        Section("character.source") {
+          CharacterOriginView(origin: draft.characterization?.origin)
+          Button("editor.importLegacy") { importingLegacy = true }
+            .accessibilityIdentifier("editor.importLegacy")
+          Text("editor.importLegacyHelp").font(.footnote).foregroundStyle(.secondary)
+        }
+        Section("character.identity") {
+          Text("character.appearanceDescription").font(.subheadline).foregroundStyle(.secondary)
+          TextField("character.appearanceDescription", text: settings.appearanceDescription, axis: .vertical)
+            .lineLimit(2...6).accessibilityIdentifier("editor.appearanceDescription")
+          Text("editor.story").font(.subheadline).foregroundStyle(.secondary)
           TextField("editor.story", text: $draft.identity.backstory, axis: .vertical)
             .lineLimit(3...8).accessibilityIdentifier("editor.story")
+          Text("editor.voice").font(.subheadline).foregroundStyle(.secondary)
           TextField("editor.voice", text: $draft.identity.voice, axis: .vertical)
             .lineLimit(2...5).accessibilityIdentifier("editor.voice")
         }
         traitsSection
+        CharacterizationEditor(settings: settings)
         instructionsSection
         appearanceSection
         Section("editor.watchAppearance") {
@@ -73,11 +86,40 @@ struct CharacterEditorView: View {
             .accessibilityIdentifier("editor.save")
         }
       }
+      .background {
+        Color.clear.fileImporter(isPresented: $importingLegacy, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+          do { if let url = try result.get().first { try restoreLegacySettings(url) } }
+          catch { errorMessage = error.localizedDescription }
+        }
+      }
       .fileImporter(isPresented: $importingSprite, allowedContentTypes: [.png], allowsMultipleSelection: false) { result in
         do { if let url = try result.get().first { try attachSprite(url) } }
         catch { errorMessage = error.localizedDescription }
       }
     }
+  }
+
+  private var settings: Binding<CharacterPack.Characterization> {
+    Binding(get: { draft.characterization ?? .init() }, set: { draft.characterization = $0 })
+  }
+
+  private func restoreLegacySettings(_ url: URL) throws {
+    let accessing = url.startAccessingSecurityScopedResource()
+    defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+    guard !draft.creator.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      throw EditorImportError.creatorRequired
+    }
+    let restored = try CharacterLegacyImport.convert(CharacterLibrary.readBoundedFile(url), version: draft.version, creator: draft.creator)
+    if let original, restored.id != original.id { throw EditorImportError.identityMismatch }
+    if original == nil {
+      draft.id = restored.id
+      draft.description = restored.description
+    }
+    draft.name = restored.name
+    draft.identity = restored.identity
+    draft.personality = restored.personality
+    draft.characterization = restored.characterization
+    errorMessage = nil
   }
 
   private var identitySection: some View {
@@ -114,7 +156,7 @@ struct CharacterEditorView: View {
   }
 
   private var instructionsSection: some View {
-    Section("editor.instructions") {
+    Section("character.otherInstructions") {
       ForEach(Array(draft.personality.instructions.indices), id: \.self) { index in
         HStack(alignment: .top) {
           TextField("editor.instructions", text: listBinding(\.instructions, index: index), axis: .vertical)
@@ -197,5 +239,81 @@ struct CharacterEditorView: View {
       library.select(saved)
       dismiss()
     } catch { errorMessage = error.localizedDescription }
+  }
+}
+
+private enum EditorImportError: LocalizedError {
+  case creatorRequired, identityMismatch
+  var errorDescription: String? {
+    String(localized: self == .creatorRequired ? "editor.creatorRequired" : "editor.identityMismatch")
+  }
+}
+
+private struct CharacterizationEditor: View {
+  @Binding var settings: CharacterPack.Characterization
+
+  var body: some View {
+    Section("character.perspective") {
+      TextField("character.perspective", text: $settings.perspective, axis: .vertical)
+        .lineLimit(3...8).accessibilityIdentifier("editor.perspective")
+    }
+    Section("character.principles") {
+      ForEach(Array(settings.principles.indices), id: \.self) { index in
+        HStack(alignment: .top) {
+          TextField("character.principles", text: principle(index), axis: .vertical)
+            .lineLimit(2...5).accessibilityIdentifier("editor.principle.\(index)")
+          Button(role: .destructive) {
+            if settings.principles.indices.contains(index) { settings.principles.remove(at: index) }
+          } label: { Image(systemName: "minus.circle").accessibilityLabel("editor.remove") }
+            .buttonStyle(.borderless)
+        }
+      }
+      Button("editor.addPrinciple") { settings.principles.append("") }
+        .disabled(settings.principles.count >= 16).accessibilityIdentifier("editor.addPrinciple")
+    }
+    Section("character.workStyle") {
+      workField("character.initiative", text: $settings.workStyle.initiative, id: "initiative")
+      workField("character.updates", text: $settings.workStyle.updates, id: "updates")
+      workField("character.recovery", text: $settings.workStyle.recovery, id: "recovery")
+    }
+    Section("character.examples") {
+      ForEach(Array(settings.examples.indices), id: \.self) { index in
+        VStack(alignment: .leading, spacing: 12) {
+          Text("character.situation").font(.subheadline).foregroundStyle(.secondary)
+          TextField("character.situation", text: example(index, \.situation), axis: .vertical)
+            .lineLimit(2...5).accessibilityIdentifier("editor.situation.\(index)")
+          Text("character.response").font(.subheadline).foregroundStyle(.secondary)
+          TextField("character.response", text: example(index, \.response), axis: .vertical)
+            .lineLimit(2...6).accessibilityIdentifier("editor.response.\(index)")
+          Button("editor.remove", role: .destructive) {
+            if settings.examples.indices.contains(index) { settings.examples.remove(at: index) }
+          }.buttonStyle(.borderless)
+        }
+      }
+      Button("editor.addExample") { settings.examples.append(.init(situation: "", response: "")) }
+        .disabled(settings.examples.count >= 8).accessibilityIdentifier("editor.addExample")
+    }
+  }
+
+  private func workField(_ title: LocalizedStringKey, text: Binding<String>, id: String) -> some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Text(title).font(.subheadline).foregroundStyle(.secondary)
+      TextField(title, text: text, axis: .vertical).lineLimit(2...5)
+        .accessibilityIdentifier("editor.\(id)")
+    }
+  }
+
+  private func principle(_ index: Int) -> Binding<String> {
+    Binding(get: { settings.principles.indices.contains(index) ? settings.principles[index] : "" }, set: {
+      guard settings.principles.indices.contains(index) else { return }
+      settings.principles[index] = $0
+    })
+  }
+
+  private func example(_ index: Int, _ key: WritableKeyPath<CharacterPack.Characterization.Example, String>) -> Binding<String> {
+    Binding(get: { settings.examples.indices.contains(index) ? settings.examples[index][keyPath: key] : "" }, set: {
+      guard settings.examples.indices.contains(index) else { return }
+      settings.examples[index][keyPath: key] = $0
+    })
   }
 }

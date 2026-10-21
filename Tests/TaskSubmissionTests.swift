@@ -126,7 +126,9 @@ struct TaskSubmissionTests {
     let pending = PendingTaskSubmission(submission: request,
       origin: try #require(TaskEndpointIdentity(url: "https://computer.example", token: token)))
     let restored = try JSONDecoder().decode(PendingTaskSubmission.self, from: JSONEncoder().encode(pending))
-    #expect(try restored.submission.encodedRequest() == request.encodedRequest())
+    let originalBytes = try request.encodedRequest()
+    #expect(String(decoding: originalBytes, as: UTF8.self) == #"{"character":{"id":"doboo","name":"Doboo","version":4},"continuity":{"companionRevision":3,"parentTaskId":"previous-turn","serverId":"server-a"},"id":"12345678-1234-1234-1234-123456789abc","prompt":"continue this conversation"}"#)
+    #expect(try restored.submission.encodedRequest() == originalBytes)
   }
 
   @Test func presentationChangesDoNotChangeTheExecutionProfile() {

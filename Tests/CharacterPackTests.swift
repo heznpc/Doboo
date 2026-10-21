@@ -40,6 +40,92 @@ struct CharacterPackTests {
     #expect(try CharacterPack.decode(pack.encoded()) == pack)
   }
 
+  private func characterization() -> CharacterPack.Characterization {
+    .init(appearanceDescription: "A peach cube with blue glasses.", perspective: "Separate evidence from assumptions.",
+      principles: ["Keep the user's purpose."], workStyle: .init(initiative: "Proceed within scope.", updates: "Report new evidence.", recovery: "Correct mistakes."),
+      examples: [.init(situation: "A check failed.", response: "I will inspect the cause.")],
+      origin: .init(schema: "troupe.character.v1", id: "peach", version: "1.2.3", personalityId: "patient", personalityVersion: "2.0.0", personalityName: "Patient guide"))
+  }
+
+  @Test func structuredCharacterizationRoundTripsAndChangesDefinitionDigest() throws {
+    var pack = CharacterPack.builtin
+    let oldDigest = try pack.definitionSHA256
+    pack.characterization = characterization()
+    pack.identity.voice = String(repeating: "말", count: 4000)
+    pack.appearance.watch = .init(renderer: .nativeDoboo, tint: "#123456")
+    #expect(try CharacterPack.decode(pack.encoded()) == pack)
+    #expect(pack.watchRepresentation.characterization == pack.characterization)
+    #expect(try pack.definitionSHA256 != oldDigest)
+    let structuredDigest = try pack.definitionSHA256
+    pack.characterization?.perspective = "An edited perspective."
+    #expect(try pack.definitionSHA256 != structuredDigest)
+    #expect(pack.characterization?.origin?.version == "1.2.3")
+    let oldJSON = try #require(JSONSerialization.jsonObject(with: CharacterPack.builtin.encoded()) as? [String: Any])
+    #expect(oldJSON["characterization"] == nil)
+    #expect(try CharacterPack.decode(CharacterPack.builtin.encoded()).characterization == nil)
+  }
+
+  @Test func characterizationRejectsMissingUnknownNullAndOversizedNestedValues() throws {
+    let detail = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(characterization())) as? [String: Any])
+    let mutations: [(inout [String: Any]) -> Void] = [
+      { $0["extra"] = "unrecognized" }, { $0.removeValue(forKey: "perspective") },
+      { $0["workStyle"] = ["initiative": "x", "updates": "y", "recovery": "z", "extra": true] },
+      { $0["workStyle"] = ["initiative": "x", "updates": "y", "recovery": NSNull()] },
+      { $0["examples"] = [["situation": "x", "response": "y", "extra": "z"]] },
+      { $0["examples"] = [["situation": "", "response": "y"]] },
+      { $0["examples"] = Array(repeating: ["situation": "x", "response": "y"], count: 9) },
+      { $0["principles"] = Array(repeating: "x", count: 17) }, { $0["principles"] = [""] },
+      { $0["perspective"] = String(repeating: "x", count: 4001) }, { $0["origin"] = NSNull() },
+      { $0["origin"] = ["schema": "unrecognized.v1", "id": "source", "version": "1.2.3"] },
+      { $0["origin"] = ["schema": "innercast.character.v1", "id": "source", "version": "1.2.3\n"] },
+      { $0["origin"] = ["schema": "innercast.character.v1", "id": "source\n", "version": "1.2.3"] },
+      { $0["origin"] = ["schema": "innercast.character.v1", "id": "source", "version": "1.2.3", "personalityId": NSNull()] },
+      { $0["origin"] = ["schema": "innercast.character.v1", "id": "source", "version": "1.2.3", "personalityName": "line\nbreak"] },
+    ]
+    for mutate in mutations {
+      var changed = detail
+      mutate(&changed)
+      let bytes = try changedJSON { $0["characterization"] = changed }
+      #expect(throws: (any Error).self) { try CharacterPack.decode(bytes) }
+    }
+    #expect(throws: (any Error).self) { try CharacterPack.decode(changedJSON { $0["characterization"] = NSNull() }) }
+    var valid = CharacterPack.builtin
+    valid.characterization = .init(appearanceDescription: String(repeating: "외", count: 4000), perspective: String(repeating: "관", count: 4000),
+      principles: Array(repeating: String(repeating: "원", count: 4000), count: 16),
+      workStyle: .init(initiative: String(repeating: "시", count: 4000), updates: String(repeating: "갱", count: 4000), recovery: String(repeating: "복", count: 4000)),
+      examples: Array(repeating: .init(situation: String(repeating: "상", count: 4000), response: String(repeating: "반", count: 4000)), count: 8))
+    #expect(try CharacterPack.decode(valid.encoded()) == valid)
+  }
+
+  @Test func structuredSettingsReachBothHostExportPayloads() throws {
+    var pack = CharacterPack.builtin
+    pack.characterization = characterization()
+    pack.characterization?.perspective = "Edited perspective."
+    let dots = try CharacterExports.dots(pack)
+    let codex = try CharacterExports.codex(pack)
+    let assignment = try #require(codex.components(separatedBy: "\n").first { $0.hasPrefix("developer_instructions = ") })
+    let codexText = try JSONDecoder().decode(String.self, from: Data(assignment.dropFirst("developer_instructions = ".count).utf8))
+    for output in [dots, codexText] {
+      let start = try #require(output.range(of: "--- 캐릭터 데이터 (작성자 입력) ---\n"))
+      let end = try #require(output.range(of: "\n--- 캐릭터 데이터 끝 ---", options: .backwards))
+      let payload = try #require(JSONSerialization.jsonObject(with: Data(output[start.upperBound..<end.lowerBound].utf8)) as? [String: Any])
+      let raw = try #require(payload["characterization"])
+      let decoded = try JSONDecoder().decode(CharacterPack.Characterization.self, from: JSONSerialization.data(withJSONObject: raw))
+      #expect(decoded == pack.characterization)
+      #expect(output.contains("현재 편집 내용이 원본과 같다는 인증이 아닙니다"))
+    }
+  }
+
+  @Test func requiredTextUsesTheSameWhitespaceSetAsTheJavaScriptFormat() throws {
+    var pack = CharacterPack.builtin
+    pack.characterization = .init(principles: ["\u{0085}"])
+    #expect(try CharacterPack.decode(pack.encoded()) == pack)
+    pack.characterization?.principles = ["\u{FEFF}"]
+    #expect(throws: (any Error).self) { try pack.encoded() }
+    pack.characterization?.principles = [" \u{FEFF}\t"]
+    #expect(throws: (any Error).self) { try pack.encoded() }
+  }
+
   @Test func revisionRangeIsIndependentOfPlatformIntegerWidth() throws {
     for version: Int64 in [2_147_483_648, 9_007_199_254_740_991] {
       var pack = CharacterPack.builtin

@@ -171,7 +171,8 @@ struct TaskConnectionTests {
     try await senderRejectsMismatchedWatchReceipt()
     try await memorySaveKeepsItsOriginalComputer()
     try await watchPersistenceFailureEmitsNoReceipt()
-    print("Passed 24 connection, continuity, and handoff regressions (URLProtocol; no network, WCSession, or Keychain).")
+    try await profileCharacterizationSurvivesNativeTransportAndCache()
+    print("Passed 25 connection, continuity, and handoff regressions (URLProtocol; no network, WCSession, or Keychain).")
   }
 
   @MainActor
@@ -631,6 +632,42 @@ struct TaskConnectionTests {
     let receipt = await attempt.value
     try require(receipt == nil && !harness.connection.hasConnection && harness.credentials.urls.isEmpty,
       "Verified HTTP alone cannot emit a paired-connection receipt when credential persistence failed")
+  }
+
+  @MainActor
+  private static func profileCharacterizationSurvivesNativeTransportAndCache() async throws {
+    let old = CompanionProfile(.builtin)
+    let legacyBytes = try JSONEncoder().encode(old)
+    let legacyFields = try JSONSerialization.jsonObject(with: legacyBytes) as! [String: Any]
+    try require(legacyFields["characterization"] == nil,
+      "Legacy profiles must omit absent characterization instead of introducing null or empty fields")
+    let restoredLegacy = try JSONDecoder().decode(CompanionProfile.self, from: legacyBytes)
+    try require(restoredLegacy == old && restoredLegacy.characterization == nil,
+      "Existing stored profiles without characterization must still decode unchanged")
+    var pack = CharacterPack.builtin
+    pack.identity.voice = String(repeating: "말", count: 4000)
+    pack.characterization = .init(appearanceDescription: "A soft peach silhouette", perspective: "Find the smallest useful next step",
+      principles: ["Preserve user changes", "Explain verified results"],
+      workStyle: .init(initiative: "Proceed on reversible work", updates: "Share meaningful changes", recovery: "Keep the last useful result"),
+      examples: [.init(situation: "A test fails", response: "Isolate the failing case first")],
+      origin: .init(schema: "troupe.character.v1", id: "peach-helper", version: "1.2.3",
+        personalityId: "careful-helper", personalityVersion: "2.0.0", personalityName: "Careful helper"))
+    _ = try pack.validated()
+    let rich = CompanionProfile(pack)
+    try require(rich.characterization == pack.characterization && rich.identity.voice == pack.identity.voice,
+      "Native execution profiles must preserve complete character settings and the expanded voice")
+    let richBytes = try JSONEncoder().encode(rich)
+    let decoded = try JSONDecoder().decode(CompanionProfile.self, from: richBytes)
+    try require(decoded == rich, "Encoding a profile for the bridge must retain every characterization field")
+    let context = CompanionContext(characterId: pack.id, profile: rich, profileDigest: "rich-digest", revision: 1,
+      memory: "Explicit note", generation: 1, updatedAt: "2026-10-21T00:00:00Z")
+    let harness = Harness(); defer { harness.close() }
+    try await establishContinuity(harness, context: context)
+    try require(harness.connection.companion(for: pack)?.profile == rich,
+      "The authenticated task list must restore full characterization on another device")
+    let cached = harness.restoreCache()
+    try require(cached.companion(for: pack)?.profile == rich && !cached.hasFreshStatus,
+      "The native cache must retain character settings without claiming a live connection")
   }
 
 }

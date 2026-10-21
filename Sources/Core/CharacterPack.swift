@@ -14,6 +14,33 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
     var traits: [String]
     var instructions: [String]
   }
+  struct Characterization: Codable, Equatable, Sendable {
+    struct WorkStyle: Codable, Equatable, Sendable {
+      var initiative: String = ""
+      var updates: String = ""
+      var recovery: String = ""
+    }
+    struct Example: Codable, Equatable, Sendable {
+      var situation: String
+      var response: String
+    }
+    struct Origin: Codable, Equatable, Sendable {
+      var schema: String
+      var id: String
+      var version: String
+      var personalityId: String? = nil
+      var personalityVersion: String? = nil
+      var personalityName: String? = nil
+    }
+    var appearanceDescription: String = ""
+    var perspective: String = ""
+    var principles: [String] = []
+    var workStyle: WorkStyle = .init()
+    var examples: [Example] = []
+    // Provenance remains the source of the import after editing, not a claim
+    // that the current settings still exactly match that source revision.
+    var origin: Origin? = nil
+  }
   struct Appearance: Codable, Equatable, Sendable {
     enum Renderer: String, Codable, Sendable { case nativeDoboo = "native-doboo", spritesheet }
     struct Sprite: Codable, Equatable, Sendable {
@@ -48,6 +75,7 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
   var identity: Identity
   var personality: Personality
   var appearance: Appearance
+  var characterization: Characterization? = nil
 
   var spriteData: Data? {
     appearance.sprite.flatMap { Data(base64Encoded: $0.base64) }
@@ -96,9 +124,21 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
       }
       return value
     }
-    let root = try object(raw, allowed: ["format", "id", "version", "name", "description", "creator", "identity", "personality", "appearance"])
+    let root = try object(raw, allowed: ["format", "id", "version", "name", "description", "creator", "identity", "personality", "appearance", "characterization"])
     _ = try object(root["identity"], allowed: ["backstory", "voice"])
     _ = try object(root["personality"], allowed: ["traits", "instructions"])
+    if let characterization = root["characterization"] {
+      let value = try object(characterization, allowed: ["appearanceDescription", "perspective", "principles", "workStyle", "examples", "origin"])
+      _ = try object(value["workStyle"], allowed: ["initiative", "updates", "recovery"])
+      guard let examples = value["examples"] as? [Any] else { throw CharacterPackError.invalidJSON }
+      for example in examples { _ = try object(example, allowed: ["situation", "response"]) }
+      if let origin = value["origin"] {
+        let source = try object(origin, allowed: ["schema", "id", "version", "personalityId", "personalityVersion", "personalityName"])
+        for key in ["personalityId", "personalityVersion", "personalityName"] where source[key] != nil {
+          guard source[key] is String else { throw CharacterPackError.invalidJSON }
+        }
+      }
+    }
     let appearance = try object(root["appearance"], allowed: ["renderer", "tint", "sprite", "watch"])
     if let watch = appearance["watch"] {
       let value = try object(watch, allowed: ["renderer", "tint", "sprite"])
@@ -134,12 +174,46 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
       throw CharacterPackError.invalidField("name / creator")
     }
     try Self.text(identity.backstory, field: "identity.backstory", limit: 4000)
-    try Self.text(identity.voice, field: "identity.voice", limit: 1000)
+    try Self.text(identity.voice, field: "identity.voice", limit: 4000)
     guard personality.traits.count <= 20, personality.instructions.count <= 30 else {
       throw CharacterPackError.invalidField("personality")
     }
     for value in personality.traits { try Self.text(value, field: "traits", limit: 160, required: true) }
     for value in personality.instructions { try Self.text(value, field: "instructions", limit: 500, required: true) }
+    if let detail = characterization {
+      try Self.text(detail.appearanceDescription, field: "characterization.appearanceDescription", limit: 4000)
+      try Self.text(detail.perspective, field: "characterization.perspective", limit: 4000)
+      guard detail.principles.count <= 16, detail.examples.count <= 8 else {
+        throw CharacterPackError.invalidField("characterization")
+      }
+      for value in detail.principles { try Self.text(value, field: "characterization.principles", limit: 4000, required: true) }
+      try Self.text(detail.workStyle.initiative, field: "characterization.workStyle.initiative", limit: 4000)
+      try Self.text(detail.workStyle.updates, field: "characterization.workStyle.updates", limit: 4000)
+      try Self.text(detail.workStyle.recovery, field: "characterization.workStyle.recovery", limit: 4000)
+      for example in detail.examples {
+        try Self.text(example.situation, field: "characterization.examples.situation", limit: 4000, required: true)
+        try Self.text(example.response, field: "characterization.examples.response", limit: 4000, required: true)
+      }
+      if let origin = detail.origin {
+        func sourceID(_ value: String) -> Bool {
+          (1...64).contains(value.utf8.count) && value.utf8.allSatisfy { (97...122).contains($0) || (48...57).contains($0) || $0 == 45 }
+        }
+        func sourceVersion(_ value: String) -> Bool {
+          value.utf8.count <= 80 && value.range(of: "\\A[0-9]+\\.[0-9]+\\.[0-9]+\\z", options: .regularExpression) != nil
+        }
+        guard ["innercast.character.v1", "troupe.character.v1", "troupe.personality.v1"].contains(origin.schema),
+          sourceID(origin.id), sourceVersion(origin.version),
+          origin.personalityId.map(sourceID) ?? true, origin.personalityVersion.map(sourceVersion) ?? true else {
+          throw CharacterPackError.invalidField("characterization.origin")
+        }
+        if let value = origin.personalityName {
+          try Self.text(value, field: "characterization.origin.personalityName", limit: 80, required: true)
+          guard !value.unicodeScalars.contains(where: { lineBreaks.contains($0.value) }) else {
+            throw CharacterPackError.invalidField("characterization.origin.personalityName")
+          }
+        }
+      }
+    }
     let tint = appearance.tint
     guard tint.utf8.count == 7, tint.first == "#", tint.dropFirst().allSatisfy(\.isHexDigit), tint.unicodeScalars.allSatisfy(\.isASCII) else {
       throw CharacterPackError.invalidField("appearance.tint")
@@ -163,8 +237,13 @@ struct CharacterPack: Codable, Equatable, Sendable, Identifiable {
 
   private static func text(_ value: String, field: String, limit: Int, required: Bool = false) throws {
     // Unicode scalar count matches the browser contract's code-point limits.
+    // ECMAScript trim differs from Foundation for U+0085 and U+FEFF; identical
+    // imported text must pass or fail on both the browser and native hosts.
+    let trimScalars: Set<UInt32> = [9, 10, 11, 12, 13, 32, 0xA0, 0x1680,
+      0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200A,
+      0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF]
     guard value.unicodeScalars.count <= limit,
-      !required || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      !required || value.unicodeScalars.contains(where: { !trimScalars.contains($0.value) }),
       !value.unicodeScalars.contains(where: { $0.value < 32 && ![9, 10, 13].contains($0.value) || $0.value == 127 })
     else { throw CharacterPackError.invalidField(field) }
   }

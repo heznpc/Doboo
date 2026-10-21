@@ -3,6 +3,12 @@ export interface CharacterPack {
   format: string; id: string; version: number; name: string; description: string; creator: string;
   identity: { backstory: string; voice: string };
   personality: { traits: string[]; instructions: string[] };
+  characterization?: {
+    appearanceDescription: string; perspective: string; principles: string[];
+    workStyle: { initiative: string; updates: string; recovery: string };
+    examples: { situation: string; response: string }[];
+    origin?: { schema: string; id: string; version: string; personalityId?: string; personalityVersion?: string; personalityName?: string };
+  };
   appearance: { renderer: 'native-doboo' | 'spritesheet'; tint: string;
     watch?: { renderer: 'native-doboo' | 'spritesheet'; tint: string; sprite?: { layout: 'pets-v1' | 'pets-v2'; mimeType: 'image/png'; base64: string } };
     sprite?: { layout: 'pets-v1' | 'pets-v2'; mimeType: string; base64: string } };

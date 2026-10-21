@@ -15,8 +15,34 @@ function list(value, count, size, label) {
   value.forEach((entry, i) => text(entry, size, `${label}[${i}]`, true));
 }
 
+export function validateCharacterization(detail) {
+  object(detail, ['appearanceDescription','perspective','principles','workStyle','examples','origin'], 'characterization');
+  text(detail.appearanceDescription, 4000, '외형 설명');
+  text(detail.perspective, 4000, '관점');
+  list(detail.principles, 16, 4000, '원칙');
+  object(detail.workStyle, ['initiative','updates','recovery'], 'characterization.workStyle');
+  for (const key of ['initiative','updates','recovery']) text(detail.workStyle[key], 4000, `characterization.workStyle.${key}`);
+  if (!Array.isArray(detail.examples) || detail.examples.length > 8) throw new TypeError('대화 예시는 최대 8개입니다.');
+  for (const example of detail.examples) {
+    object(example, ['situation','response'], 'characterization.example');
+    text(example.situation, 4000, '예시 상황', true);
+    text(example.response, 4000, '예시 반응', true);
+  }
+  if (detail.origin !== undefined) {
+    const origin = detail.origin;
+    object(origin, ['schema','id','version','personalityId','personalityVersion','personalityName'], 'characterization.origin');
+    if (!['innercast.character.v1','troupe.character.v1','troupe.personality.v1'].includes(origin.schema)) throw new TypeError('가져온 설정의 출처 형식이 잘못되었습니다.');
+    if (typeof origin.id !== 'string' || !/^[a-z0-9-]{1,64}$/.test(origin.id)) throw new TypeError('출처 ID가 잘못되었습니다.');
+    if (typeof origin.version !== 'string' || origin.version.length > 80 || !/^\d+\.\d+\.\d+$/.test(origin.version)) throw new TypeError('출처 버전이 잘못되었습니다.');
+    if (origin.personalityId !== undefined && (typeof origin.personalityId !== 'string' || !/^[a-z0-9-]{1,64}$/.test(origin.personalityId))) throw new TypeError('성격 출처 ID가 잘못되었습니다.');
+    if (origin.personalityVersion !== undefined && (typeof origin.personalityVersion !== 'string' || origin.personalityVersion.length > 80 || !/^\d+\.\d+\.\d+$/.test(origin.personalityVersion))) throw new TypeError('성격 출처 버전이 잘못되었습니다.');
+    if (origin.personalityName !== undefined) text(origin.personalityName, 80, '성격 출처 이름', true, true);
+  }
+  return structuredClone(detail);
+}
+
 export function validateCharacter(raw) {
-  object(raw, ['format','id','version','name','description','creator','identity','personality','appearance'], '캐릭터');
+  object(raw, ['format','id','version','name','description','creator','identity','personality','appearance','characterization'], '캐릭터');
   if (raw.format !== FORMAT) throw new TypeError(`형식은 ${FORMAT}여야 합니다.`);
   if (typeof raw.id !== 'string' || !/^[a-z0-9-]{1,64}$/.test(raw.id)) throw new TypeError('ID는 소문자, 숫자, 하이픈 1–64자여야 합니다.');
   if (!Number.isSafeInteger(raw.version) || raw.version < 1) throw new TypeError('버전은 1 이상의 안전한 정수여야 합니다.');
@@ -25,10 +51,11 @@ export function validateCharacter(raw) {
   text(raw.creator, 80, '제작자', true, true);
   object(raw.identity, ['backstory','voice'], 'identity');
   text(raw.identity.backstory, 4000, '배경 이야기');
-  text(raw.identity.voice, 1000, '말투');
+  text(raw.identity.voice, 4000, '말투');
   object(raw.personality, ['traits','instructions'], 'personality');
   list(raw.personality.traits, 20, 160, '성격');
   list(raw.personality.instructions, 30, 500, '행동 지침');
+  if (raw.characterization !== undefined) validateCharacterization(raw.characterization);
   object(raw.appearance, ['renderer','tint','sprite','watch'], 'appearance');
   if (!['native-doboo','spritesheet'].includes(raw.appearance.renderer)) throw new TypeError('외형 렌더러가 잘못되었습니다.');
   if (typeof raw.appearance.tint !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(raw.appearance.tint)) throw new TypeError('색상은 #RRGGBB 형식이어야 합니다.');
@@ -72,7 +99,7 @@ export function importCharacter(raw, { version, creator } = {}) {
     for (const key of ['name','appearance','backstory','voice']) text(raw.identity[key], 4000, `Troupe.identity.${key}`, true);
   } else if (raw.schema === 'innercast.character.v1') text(raw.voice, 4000, 'Troupe.voice', true);
   const p = isCast ? raw.personality : raw;
-  if (p && isCast) object(p, ['schema','id','version','name','perspective','principles','workStyle','examples'], 'Troupe.personality');
+  if (isCast && p !== undefined && p !== null) object(p, ['schema','id','version','name','perspective','principles','workStyle','examples'], 'Troupe.personality');
   if (p) {
     text(p.name, 80, 'Troupe.personality.name', true);
     text(p.perspective, 4000, 'Troupe.perspective', true);
@@ -85,23 +112,23 @@ export function importCharacter(raw, { version, creator } = {}) {
     if ((p.examples?.length ?? 0) > 8) throw new TypeError('Troupe examples는 최대 8개입니다.');
     for (const example of p.examples ?? []) { object(example, ['situation','response'], 'Troupe.example'); text(example.situation,4000,'Troupe.example.situation',true); text(example.response,4000,'Troupe.example.response',true); }
   }
-  const backstory = isCast ? `${raw.identity.backstory}\n\n외형 설명: ${raw.identity.appearance}` : raw.perspective;
-  const instructions = p ? [
-    ...(isCast ? [`성격 정의: ${p.name} (${p.id}@${p.version})`] : []),
-    `관점: ${p.perspective}`, ...p.principles,
-    ...Object.entries(p.workStyle).map(([key, value]) => `${key}: ${value}`),
-    ...(p.examples ?? []).map(example => `상황: ${example.situation}\n반응: ${example.response}`),
-  ] : [];
   const character = validateCharacter({
     format: FORMAT, id: raw.id, version,
     name: isCast ? raw.identity.name : raw.name, description: '', creator,
-    identity: { backstory, voice: isCast ? raw.identity.voice : raw.voice ?? '' },
-    personality: { traits: [], instructions },
-    appearance: { renderer: 'native-doboo', tint: '#F3A38C' },
+    identity: { backstory: isCast ? raw.identity.backstory : '', voice: isCast ? raw.identity.voice : raw.voice ?? '' },
+    personality: { traits: [], instructions: [] },
+    characterization: {
+      appearanceDescription: isCast ? raw.identity.appearance : '', perspective: p?.perspective ?? '',
+      principles: p?.principles ?? [], workStyle: p?.workStyle ?? { initiative: '', updates: '', recovery: '' },
+      examples: p?.examples ?? [],
+      origin: { schema: raw.schema, id: raw.id, version: raw.version,
+        ...(isCast && p ? { personalityId: p.id, personalityVersion: p.version, personalityName: p.name } : {}) },
+    },
+    appearance: { renderer: 'native-doboo', tint: '#FF8F62' },
   });
   return { character, migration: {
     sourceSchema: raw.schema, sourceId: raw.id, sourceVersion: raw.version,
     targetId: character.id, targetVersion: version, original: structuredClone(raw),
-    changes: ['정수 버전은 사용자가 지정했습니다.', '기존 설명·관점·행동 지침은 배경 이야기와 행동 지침에 옮겼습니다.', '외형 이미지가 없는 원본은 Doboo 기본 외형으로 표시합니다.', '원본과 원본 버전은 이 변환 기록에 보존됩니다.'],
+    changes: ['정수 버전은 사용자가 지정했습니다.', '외형 설명·관점·원칙·작업 방식·예시는 구조화된 캐릭터 설정에 보존했습니다. 중복 행동 지침을 만들지 않았습니다.', '외형 이미지가 없는 원본은 Doboo 기본 외형으로 표시합니다.', '원본과 원본 버전은 이 변환 기록에 보존됩니다. 캐릭터의 출처 표시는 이후 편집 내용의 일치를 보증하지 않습니다.'],
   } };
 }

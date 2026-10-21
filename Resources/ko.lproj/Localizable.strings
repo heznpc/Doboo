@@ -229,3 +229,28 @@
 "continuity.connectionBusy" = "기억 저장이나 워치 연결 확인이 끝난 뒤 컴퓨터 연결을 변경해 주세요.";
 "continuity.connectionChanged" = "연결된 컴퓨터가 바뀌었습니다. 이 화면을 닫고 다시 열어 새 연결의 기억을 수정해 주세요.";
 "continuity.appearanceTransferHelp" = "Watch에 캐릭터 외형을 보냅니다. 작업과 개인 기억은 같은 컴퓨터에 연결해 함께 씁니다.";
+
+// Structured character settings
+"character.settings" = "캐릭터 설정";
+"character.identity" = "외형 설정·배경·말투";
+"character.appearanceDescription" = "외형 설정";
+"character.perspective" = "관점·세계관";
+"character.principles" = "행동 원칙";
+"character.workStyle" = "일하는 방식";
+"character.initiative" = "먼저 행동하는 방식";
+"character.updates" = "진행 상황을 전하는 방식";
+"character.recovery" = "실패·막힘에 대응하는 방식";
+"character.examples" = "상황별 대사·반응";
+"character.situation" = "상황";
+"character.response" = "캐릭터의 대사·반응";
+"character.otherInstructions" = "기타 행동 지침";
+"character.notSet" = "아직 설정하지 않았습니다";
+"character.source" = "설정의 출처";
+"character.sourceHelp" = "가져온 원본의 기록입니다. 수정하면 Doboo 버전으로 저장되며 원본과 자동 동기화되지 않습니다.";
+"character.noSource" = "기록된 이식 출처가 없습니다. 기존 설정은 저장된 그대로 표시합니다.";
+"editor.importLegacy" = "Troupe·Innercast 원본 불러오기";
+"editor.importLegacyHelp" = "원본 JSON 또는 이식 보고서로 초안의 캐릭터 설정을 교체합니다. 제작자를 먼저 입력하세요. 저장을 누르기 전에는 반영되지 않습니다.";
+"editor.creatorRequired" = "원본을 불러오기 전에 제작자를 입력해 주세요.";
+"editor.identityMismatch" = "다른 ID의 캐릭터 원본입니다. 새 캐릭터 만들기에서 불러와 주세요.";
+"editor.addPrinciple" = "행동 원칙 추가";
+"editor.addExample" = "상황과 대사 추가";
