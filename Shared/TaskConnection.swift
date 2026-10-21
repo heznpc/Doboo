@@ -17,6 +17,12 @@ final class TaskConnection {
   private(set) var companions: [CompanionContext] = []
   private(set) var serverId: String?
   private(set) var savingCompanion = false
+  private(set) var story: StoryState?
+  private(set) var storyError: String?
+  private(set) var loadingStory = false
+  private(set) var savingStory = false
+  private(set) var pendingStoryTurn: PendingStoryTurn?
+  private var pendingStoryUnreadable = false
   private(set) var isSendingWatchConnection = false
   private(set) var watchConnectionStatus: String?
   @ObservationIgnored var watchConnectionSender: (@MainActor (WatchConnectionEnvelope) async throws -> WatchConnectionReceipt)?
@@ -76,6 +82,7 @@ final class TaskConnection {
     try? FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
     loadTaskCache()
     loadPending()
+    loadPendingStory()
     var result: CFTypeRef?
     let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: Self.credentialAccount,
       kSecAttrAccount as String: "computer", kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
@@ -109,6 +116,7 @@ final class TaskConnection {
     self.now = now
     loadTaskCache()
     loadPending()
+    loadPendingStory()
   }
 
   var hasConnection: Bool { connection != nil }
@@ -122,7 +130,7 @@ final class TaskConnection {
     companions.first { $0.characterId == character.id }
   }
   func canEditCompanion(characterId: String) -> Bool {
-    hasFreshStatus && supportsContinuity && !savingCompanion && !submitting && !pendingRetry
+    hasFreshStatus && supportsContinuity && !savingCompanion && !savingStory && !hasPendingStory && !submitting && !pendingRetry
       && !tasks.contains { $0.character.id == characterId && !$0.finished }
   }
   func canContinue(task: CompanionTask) -> Bool {
@@ -142,7 +150,7 @@ final class TaskConnection {
     let age = now().timeIntervalSince(lastSuccessfulRefreshAt)
     return age >= 0 && age < 15
   }
-  var canSubmit: Bool { hasFreshStatus && connected && !submitting && !savingCompanion && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
+  var canSubmit: Bool { hasFreshStatus && connected && !submitting && !savingCompanion && !savingStory && !hasPendingStory && !pendingRetry && !tasks.contains(where: { !$0.finished }) }
   var pendingRetry: Bool { pending != nil || pendingRecordUnreadable }
   private var endpoint: TaskEndpointIdentity? { connection.flatMap { TaskEndpointIdentity(url: $0.url, token: $0.token) } }
 
@@ -205,7 +213,7 @@ final class TaskConnection {
 
   @discardableResult func connect() async -> Bool {
     guard !Task.isCancelled, isSceneActive else { return false }
-    guard !submitting, !savingCompanion, !isSendingWatchConnection else {
+    guard !submitting, !savingCompanion, !savingStory, !isSendingWatchConnection else {
       operationError = String(localized: "continuity.connectionBusy"); return false
     }
     operationError = nil
@@ -224,14 +232,16 @@ final class TaskConnection {
       guard !Task.isCancelled, connectionAttempt == attempt, statusGeneration == generation,
         address == requestedAddress, connectionToken == requestedToken else { return false }
       // A submission can start while this connection check is awaiting its reply.
-      guard !submitting, !savingCompanion, !isSendingWatchConnection, permitsConnection(to: candidate) else {
+      guard !submitting, !savingCompanion, !savingStory, !isSendingWatchConnection, permitsConnection(to: candidate) else {
         operationError = "접수를 확인하지 못한 요청이 있습니다. 원래 컴퓨터에서 확인한 뒤 연결을 변경해 주세요."; return false
       }
+      if let expected = pendingStoryTurn?.serverId, expected != list.serverId { throw URLError(.userAuthenticationRequired) }
       if let expected = pending?.submission.continuity?.serverId, expected != list.serverId {
         throw URLError(.userAuthenticationRequired)
       }
       value.serverId = list.serverId
       try persistCredential(value)
+      if endpoint != candidate || serverId != list.serverId { story = nil; storyError = nil }
       connection = value
       serverId = list.serverId; companions = list.companions ?? []
       tasks = list.tasks; project = list.project; refreshError = nil; acknowledged = [:]
@@ -250,7 +260,8 @@ final class TaskConnection {
   }
 
   private func permitsConnection(to candidate: TaskEndpointIdentity) -> Bool {
-    guard !pendingRecordUnreadable else { return false }
+    guard !pendingRecordUnreadable, !pendingStoryUnreadable else { return false }
+    if let pendingStoryTurn, pendingStoryTurn.origin != candidate { return false }
     return pending?.permitsConnection(to: candidate, current: endpoint) ?? true
   }
 
@@ -273,18 +284,19 @@ final class TaskConnection {
   }
 
   func receiveWatchConnection(_ envelope: WatchConnectionEnvelope) async throws -> WatchConnectionReceipt {
-    guard envelope.isValid, isSceneActive, !submitting, !pendingRetry, !savingCompanion else {
+    guard envelope.isValid, isSceneActive, !submitting, !pendingRetry, !savingCompanion, !savingStory, !hasPendingStory else {
       throw URLError(.userAuthenticationRequired)
     }
     let origin = endpoint, generation = statusGeneration
     let candidate = ComputerConnection(url: envelope.url, token: envelope.token, serverId: envelope.serverId)
     let list: ListResponse = try await request("/v1/tasks", using: candidate)
     guard !Task.isCancelled, isSceneActive, statusGeneration == generation, endpoint == origin,
-      !submitting, !pendingRetry, !savingCompanion, list.serverId == envelope.serverId else {
+      !submitting, !pendingRetry, !savingCompanion, !savingStory, !hasPendingStory, list.serverId == envelope.serverId else {
       throw URLError(.userAuthenticationRequired)
     }
     try persistCredential(candidate)
     invalidateLiveStatus()
+    story = nil; storyError = nil
     connection = candidate; address = candidate.url; connectionToken = candidate.token
     serverId = list.serverId; companions = list.companions ?? []; tasks = list.tasks; project = list.project
     acknowledged = [:]; refreshError = nil; operationError = nil
@@ -523,6 +535,130 @@ final class TaskConnection {
       let _: CompanionTask = try await request("/v1/tasks/\(task.id)/approval", body: body)
       operationError = nil; invalidateLiveStatus(); await refresh()
     } catch { operationError = error.localizedDescription }
+  }
+
+  var hasPendingStory: Bool { pendingStoryTurn != nil || pendingStoryUnreadable }
+  var canEditStory: Bool {
+    isSceneActive && hasFreshStatus && supportsContinuity && story?.serverId == serverId
+      && !loadingStory && !savingStory && !savingCompanion && !submitting && !pendingRetry && !hasPendingStory
+      && !tasks.contains { !$0.finished }
+  }
+
+  private func loadPendingStory() {
+    let file = storage.appendingPathComponent("pending-story.json")
+    guard FileManager.default.fileExists(atPath: file.path) else { return }
+    do { pendingStoryTurn = try JSONDecoder().decode(PendingStoryTurn.self, from: Data(contentsOf: file)) }
+    catch { pendingStoryUnreadable = true; storyError = String(localized: "story.pendingUnreadable") }
+  }
+
+  func refreshStory() async {
+    guard isSceneActive, !loadingStory, !savingStory, let origin = endpoint,
+      let current = connection, let serverId, current.serverId == serverId else { return }
+    let generation = statusGeneration
+    loadingStory = true
+    defer { loadingStory = false }
+    do {
+      let value: StoryState = try await request("/v1/story", using: current)
+      guard !Task.isCancelled, isSceneActive, statusGeneration == generation, endpoint == origin,
+        self.serverId == serverId else { return }
+      guard value.serverId == serverId else { throw URLError(.userAuthenticationRequired) }
+      if story == nil || value.revision >= story!.revision { story = value }
+      if !hasPendingStory { storyError = nil }
+    } catch {
+      guard !Task.isCancelled, statusGeneration == generation, endpoint == origin else { return }
+      storyError = error.localizedDescription
+    }
+  }
+
+  @discardableResult
+  func createStoryEpisode(title: String, castIds: [String], predecessorEpisodeId: String? = nil) async -> Bool {
+    var values: [String: Any] = ["title": title, "castIds": castIds]
+    if let predecessorEpisodeId { values["predecessorEpisodeId"] = predecessorEpisodeId }
+    return await mutateStory("/v1/story/episodes", values: values,
+      expectedRevision: story?.revision ?? -1, expectedServerId: serverId ?? "")
+  }
+
+  @discardableResult
+  func saveStoryRelationship(episodeId: String, from: String, to: String, summary: String,
+      sourceEventId: String? = nil, expectedRevision: Int, expectedServerId: String) async -> Bool {
+    var values: [String: Any] = ["episodeId": episodeId, "fromCharacterId": from, "toCharacterId": to, "summary": summary]
+    if let sourceEventId { values["sourceEventId"] = sourceEventId }
+    return await mutateStory("/v1/story/relationships", values: values,
+      expectedRevision: expectedRevision, expectedServerId: expectedServerId)
+  }
+
+  @discardableResult
+  func saveStoryEvent(_ event: StoryEvent, summary: String, forgotten: Bool,
+      expectedRevision: Int, expectedServerId: String) async -> Bool {
+    await mutateStory("/v1/story/events/\(event.id)", values: ["summary": summary, "forgotten": forgotten],
+      expectedRevision: expectedRevision, expectedServerId: expectedServerId)
+  }
+
+  private func mutateStory(_ path: String, values: [String: Any], expectedRevision: Int,
+      expectedServerId: String) async -> Bool {
+    guard canEditStory, let serverId, serverId == expectedServerId, let origin = endpoint,
+      story?.revision == expectedRevision else {
+      storyError = String(localized: "story.changed"); return false
+    }
+    savingStory = true; storyError = nil
+    let generation = statusGeneration
+    defer { savingStory = false }
+    do {
+      var body = values; body["serverId"] = serverId; body["expectedRevision"] = expectedRevision
+      let value: StoryState = try await request(path, body: JSONSerialization.data(withJSONObject: body))
+      guard !Task.isCancelled, isSceneActive, statusGeneration == generation, endpoint == origin,
+        self.serverId == serverId, value.serverId == serverId else { return false }
+      story = value
+      return true
+    } catch {
+      guard endpoint == origin, self.serverId == serverId else { return false }
+      storyError = error.localizedDescription
+      return false
+    }
+  }
+
+  @discardableResult
+  func submitStoryTurn(episodeId: String, prompt: String) async -> Bool {
+    guard !savingStory, let origin = endpoint, let serverId else { return false }
+    if pendingStoryTurn == nil {
+      guard canEditStory, let story, story.episodes.contains(where: { $0.id == episodeId }),
+        !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+      let pending = PendingStoryTurn(origin: origin, serverId: serverId, episodeId: episodeId,
+        expectedRevision: story.revision, requestId: UUID().uuidString, prompt: prompt)
+      do {
+        try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
+        try JSONEncoder().encode(pending).write(to: storage.appendingPathComponent("pending-story.json"), options: .atomic)
+        pendingStoryTurn = pending
+      } catch { storyError = error.localizedDescription; return false }
+    }
+    guard let pending = pendingStoryTurn, pending.origin == origin, pending.serverId == serverId,
+      pending.episodeId == episodeId else { storyError = String(localized: "story.pendingOther"); return false }
+    savingStory = true; storyError = nil
+    defer { savingStory = false }
+    do {
+      let task: CompanionTask = try await request("/v1/story/episodes/\(episodeId)/turns", body: pending.encodedRequest())
+      guard task.id == pending.requestId, task.episodeId == episodeId, task.prompt == pending.prompt,
+        endpoint == origin, self.serverId == serverId else { throw URLError(.badServerResponse) }
+      try clearPendingStory()
+      tasks.removeAll { $0.id == task.id }; tasks.insert(task, at: 0)
+      return true
+    } catch let failure as RequestFailure where failure.isDefinitiveRejection {
+      do { try clearPendingStory() } catch { storyError = error.localizedDescription; return false }
+      storyError = failure.localizedDescription
+    } catch { storyError = String(localized: "story.retryHelp") + " " + error.localizedDescription }
+    return false
+  }
+
+  private func clearPendingStory() throws {
+    let file = storage.appendingPathComponent("pending-story.json")
+    if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
+    pendingStoryTurn = nil; pendingStoryUnreadable = false
+  }
+
+  func forgetPendingStory() {
+    guard !savingStory else { return }
+    do { try clearPendingStory(); storyError = nil }
+    catch { storyError = error.localizedDescription }
   }
 
   private func currentActionTarget(_ task: CompanionTask) -> CompanionTask? {

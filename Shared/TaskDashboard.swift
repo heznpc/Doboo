@@ -71,6 +71,9 @@ struct TaskDashboard: View {
               }.navigationTitle("continuity.history")
             }
           }
+          NavigationLink("story.title") {
+            StoryDashboard(connection: connection, library: library)
+          }.accessibilityIdentifier("story.open")
           Button("task.connectionSettings") { presentedSheet = .connection }.font(.caption)
         }.padding()
       }
@@ -344,7 +347,7 @@ private enum TaskSheet: Identifiable {
   }
 }
 
-private struct ComputerConnectionForm: View {
+struct ComputerConnectionForm: View {
   @Bindable var connection: TaskConnection
   @Environment(\.dismiss) private var dismiss
   @Environment(\.scenePhase) private var scenePhase

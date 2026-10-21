@@ -15,6 +15,8 @@
     "test:device-build": "python3 -m unittest discover -s scripts -p test_build_device.py",
     "test:watch-widgets": "python3 Widgets/Tests/run.py",
     "test:connection": "python3 ConnectionTests/run.py",
-    "test:continuity": "python3 IntegrationTests/run.py"
+    "test:continuity": "python3 IntegrationTests/run.py",
+    "test:story": "python3 IntegrationTests/story_run.py",
+    "test:story:live": "python3 IntegrationTests/story_run.py --live"
   }
 }

@@ -68,7 +68,7 @@ test('restart marks unfinished tasks interrupted without replay', async () => {
 });
 test('cancel persists interrupted and keeps actual result separate from success', async () => {
   const options=setup();const a=new TaskBridge(options);const task=await a.submit(input());await until(()=>task.turnId);await a.cancel(task);
-  assert.equal(task.status,'interrupted');assert.equal(JSON.parse(readFileSync(join(options.directory,'tasks.json')))[0].status,'interrupted');a.close();
+  assert.equal(task.status,'interrupted');assert.equal(JSON.parse(readFileSync(join(options.directory,'state.json'))).tasks[0].status,'interrupted');a.close();
 });
 
 for (const interrupt of ['reject', 'timeout']) {
@@ -81,7 +81,7 @@ for (const interrupt of ['reject', 'timeout']) {
     assert.equal(task.approvals.length, 0);
     assert.match(task.error, /실행기를 종료했습니다/);
     await until(() => !bridge.sessions.has(task.id));
-    assert.equal(JSON.parse(readFileSync(join(options.directory, 'tasks.json')))[0].status, 'interrupted');
+    assert.equal(JSON.parse(readFileSync(join(options.directory, 'state.json'))).tasks[0].status, 'interrupted');
   });
 }
 

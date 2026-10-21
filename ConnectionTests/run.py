@@ -11,7 +11,7 @@ def main():
         executable = Path(temporary) / "connection-tests"
         command = ["swiftc", "-swift-version", "6", "-parse-as-library",
                    "Sources/Core/CharacterPack.swift", "Sources/Core/CompanionTask.swift",
-                   "Sources/Core/TaskSubmission.swift", "Shared/TaskConnection.swift",
+                   "Sources/Core/TaskSubmission.swift", "Sources/Core/CompanionStory.swift", "Shared/TaskConnection.swift",
                    "ConnectionTests/TaskConnectionTests.swift", "-o", str(executable)]
         try:
             subprocess.run(command, cwd=repo, check=True, timeout=60)

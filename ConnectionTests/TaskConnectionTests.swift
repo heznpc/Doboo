@@ -172,7 +172,10 @@ struct TaskConnectionTests {
     try await memorySaveKeepsItsOriginalComputer()
     try await watchPersistenceFailureEmitsNoReceipt()
     try await profileCharacterizationSurvivesNativeTransportAndCache()
-    print("Passed 25 connection, continuity, and handoff regressions (URLProtocol; no network, WCSession, or Keychain).")
+    try await storyRejectsForeignAndBackgroundReplies()
+    try await staleStoryEditorSendsNoMutation()
+    try await ambiguousStoryRequestKeepsIdentityAndDestination()
+    print("Passed 28 connection, continuity, story, and handoff regressions (URLProtocol; no network, WCSession, or Keychain).")
   }
 
   @MainActor
@@ -668,6 +671,76 @@ struct TaskConnectionTests {
     let cached = harness.restoreCache()
     try require(cached.companion(for: pack)?.profile == rich && !cached.hasFreshStatus,
       "The native cache must retain character settings without claiming a live connection")
+  }
+
+  private static func storyFixture(serverId: String = "server-a", revision: Int = 1) throws -> [String: Any] {
+    ["serverId": serverId, "revision": revision, "relationships": [], "events": [], "episodes": [[
+      "id": "episode-one", "title": "Lighthouse", "castIds": ["doboo", "friend"],
+      "castProfiles": [try object(CompanionProfile(.builtin))], "seriesId": "episode-one",
+      "taskIds": [], "createdAt": "now", "updatedAt": "now"
+    ]]]
+  }
+
+  @MainActor
+  private static func establishStory(_ harness: Harness) async throws {
+    try await establishContinuity(harness)
+    let response = harness.nextResponse()
+    let refresh = Task { await harness.connection.refreshStory() }
+    try await wait(for: response.started)
+    try response.reply(body: storyFixture())
+    await refresh.value
+    try require(harness.connection.story?.revision == 1, "Story fixture must load")
+  }
+
+  @MainActor
+  private static func storyRejectsForeignAndBackgroundReplies() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishStory(harness)
+    let foreign = harness.nextResponse()
+    let refresh = Task { await harness.connection.refreshStory() }
+    try await wait(for: foreign.started)
+    try foreign.reply(body: storyFixture(serverId: "foreign", revision: 100))
+    await refresh.value
+    try require(harness.connection.story?.serverId == "server-a" && harness.connection.story?.revision == 1,
+      "A different server cannot replace story state")
+    let delayed = harness.nextResponse()
+    let second = Task { await harness.connection.refreshStory() }
+    try await wait(for: delayed.started)
+    harness.connection.setSceneActive(false)
+    try delayed.reply(body: storyFixture(revision: 2))
+    await second.value
+    try require(harness.connection.story?.revision == 1 && !harness.connection.canEditStory,
+      "A reply from an ended foreground session cannot revive story editing")
+  }
+
+  @MainActor
+  private static func staleStoryEditorSendsNoMutation() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishStory(harness)
+    let unexpected = harness.nextResponse()
+    let saved = await harness.connection.saveStoryRelationship(episodeId: "episode-one", from: "doboo",
+      to: "friend", summary: "Trusts friend", expectedRevision: 0, expectedServerId: "server-a")
+    try require(!saved && !unexpected.started && harness.connection.storyError != nil,
+      "A stale relationship editor must not overwrite the current revision")
+  }
+
+  @MainActor
+  private static func ambiguousStoryRequestKeepsIdentityAndDestination() async throws {
+    let harness = Harness(); defer { harness.close() }
+    try await establishStory(harness)
+    let response = harness.nextResponse()
+    let submit = Task { await harness.connection.submitStoryTurn(episodeId: "episode-one", prompt: "Open the door") }
+    try await wait(for: response.started)
+    let pending = harness.connection.pendingStoryTurn
+    try response.reply(body: ["error": "connection interrupted"], status: 503)
+    let admitted = await submit.value
+    try require(!admitted && pending != nil && harness.connection.pendingStoryTurn == pending,
+      "Ambiguous scene admission must retain the exact request")
+    let restored = harness.restoreCache()
+    try require(restored.pendingStoryTurn == pending, "Pending scene must survive app relaunch")
+    let (_, unexpected) = harness.prepare()
+    let changed = await harness.connection.connect()
+    try require(!changed && !unexpected.started, "An unconfirmed scene must not move to another computer")
   }
 
 }

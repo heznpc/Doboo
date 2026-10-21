@@ -47,7 +47,7 @@ def main():
         executable = root / 'flow'
         subprocess.run(['swiftc', '-swift-version', '6', '-parse-as-library',
                         'Sources/Core/CharacterPack.swift', 'Sources/Core/CompanionTask.swift',
-                        'Sources/Core/TaskSubmission.swift', 'Shared/TaskConnection.swift',
+                        'Sources/Core/TaskSubmission.swift', 'Sources/Core/CompanionStory.swift', 'Shared/TaskConnection.swift',
                         'IntegrationTests/ContinuityFlow.swift', '-o', str(executable)],
                        cwd=repo, check=True, timeout=90)
         env = os.environ.copy()

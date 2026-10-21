@@ -10,6 +10,8 @@ struct DobooLibraryApp: App {
       TabView {
         CompanionHomeView(library: library, tasks: tasks)
           .tabItem { Label("동반자", systemImage: "heart") }
+        StoryDashboard(connection: tasks, library: library)
+          .tabItem { Label("story.title", systemImage: "book") }
         CharacterLibraryView(library: library)
           .tabItem { Label("캐릭터", systemImage: "person.crop.square") }
       }
