@@ -9,6 +9,9 @@ import { validateCharacterization } from '../character-kit/model.mjs';
 import { StoryWorld } from './story.mjs';
 import { NativeCast, castJobs, prepareCastWorkspace, sceneBaseRules, sceneRules, sceneSchema, sceneConfig as defaultSceneConfig } from './native-cast.mjs';
 import { resolveCodexBinary } from './runtime.mjs';
+import { WorkCast, prepareWorkCastWorkspace, workConfig, workRules, workSchema } from './work-cast.mjs';
+import { digestContext } from './native-cast.mjs';
+import { repositorySnapshot, repositoryEvidence, workMemory, workEvidenceTool, workEvidenceResponse } from './work-evidence.mjs';
 
 const terminal = new Set(['completed', 'failed', 'interrupted']);
 const bounded = (text, limit = 24000) => String(text ?? '').slice(-limit);
@@ -88,7 +91,7 @@ export class TaskBridge {
       || (input.resetHistory !== undefined && typeof input.resetHistory !== 'boolean')) throw new Error('캐릭터 기억 요청 형식이 올바르지 않습니다.');
     const old = this.companion(id);
     if (input.expectedRevision !== (old?.revision ?? 0)) throw new Error('다른 기기에서 캐릭터 설정이 바뀌었습니다. 새로 확인한 뒤 저장해 주세요.');
-    if ([...this.jobs.values()].some(task => task.character.id === id && !terminal.has(task.status))) throw new Error('진행 중인 작업을 마치거나 중단한 뒤 기억을 변경해 주세요.');
+    if ([...this.jobs.values()].some(task => (task.character.id === id || task.work?.cast.some(member => member.character.id === id)) && !terminal.has(task.status))) throw new Error('진행 중인 작업을 마치거나 중단한 뒤 기억을 변경해 주세요.');
     const digest = profileDigest(profile);
     if (old && (profile.version < old.profile.version || (profile.version === old.profile.version && digest !== old.profileDigest))) {
       throw new Error('저장된 캐릭터보다 이전 버전이거나 같은 버전의 성격이 다릅니다. 캐릭터를 갱신해 주세요.');
@@ -112,33 +115,67 @@ export class TaskBridge {
       ...(input.parentTaskId ? { parentTaskId: input.parentTaskId } : {}) };
   }
   executionContext(input, reference) {
-    if (!reference) return null;
+    if (!reference) {
+      if (input.work != null) throw new Error('캐릭터 협업에는 적용된 성격과 연결 정보가 필요합니다.');
+      return null;
+    }
     if (reference.serverId !== this.serverId) throw new Error('연결된 컴퓨터가 변경되었습니다. 다시 연결을 확인해 주세요.');
     const context = this.companion(input.character.id);
     if (!context || context.revision !== reference.companionRevision) throw new Error('캐릭터의 성격 또는 기억이 바뀌었습니다. 새로 확인한 뒤 요청해 주세요.');
     if (context.profile.version !== input.character.version || context.profile.name !== input.character.name) throw new Error('작업 캐릭터와 컴퓨터에 적용한 성격이 다릅니다. 캐릭터 설정을 확인해 주세요.');
+    const work = this.workRequest(input.work);
+    const members = work?.cast.map(member => {
+      const saved = this.companion(member.character.id);
+      if (!saved || saved.revision !== member.companionRevision || saved.profile.version !== member.character.version || saved.profile.name !== member.character.name)
+        throw new Error('참여 캐릭터의 성격 또는 기억이 바뀌었습니다. 다시 확인해 주세요.');
+      return saved;
+    });
+    if (members && !members.some(member => member.characterId === context.characterId)) throw new Error('작업 캐릭터를 참여 캐릭터에 포함해 주세요.');
+    const castFingerprint = members?.map(member => ({ characterId: member.characterId, revision: member.revision, generation: member.generation, profileDigest: member.profileDigest }));
     let parent = null;
     if (reference.parentTaskId) {
       parent = this.jobs.get(reference.parentTaskId);
       if (!parent || parent.status !== 'completed' || parent.character.id !== context.characterId
         || parent.continuity?.generation !== context.generation || parent.continuity?.profileDigest !== context.profileDigest
         || parent.continuity?.serverId !== this.serverId) throw new Error('이 작업의 맥락은 이어갈 수 없습니다. 현재 캐릭터로 새 작업을 시작해 주세요.');
+      const identity = cast => cast?.map(({ revision, ...value }) => value) ?? null;
+      if (!same(identity(castFingerprint), identity(parent.continuity.workCast))) throw new Error('참여 캐릭터의 구성·성격·기억이 바뀌어 이 협업을 이어갈 수 없습니다. 새 작업을 시작해 주세요.');
       if ([...this.jobs.values()].some(task => task.continuity?.parentTaskId === parent.id && !['failed', 'interrupted'].includes(task.status))) throw new Error('이미 이어진 작업입니다. 가장 최근 작업에서 이어가 주세요.');
     }
-    const history = []; let remaining = 12000, historyTruncated = false, cursor = parent;
+    const history = []; let remaining = members ? 48000 : 12000, historyTruncated = false, cursor = parent;
     while (cursor) {
       if (history.length >= 6 || remaining <= 0) { historyTruncated = true; break; }
       const prompt = cursor.prompt.slice(0, Math.min(4000, remaining)); remaining -= prompt.length;
       const result = remaining > 0 ? cursor.result.slice(-Math.min(6000, remaining)) : ''; remaining -= result.length;
-      history.unshift({ prompt, result });
+      const remembered = workMemory(cursor);
+      if (remembered?.truncated) historyTruncated = true;
+      const memorySize = remembered ? JSON.stringify(remembered).length : 0;
+      if (memorySize > remaining) { historyTruncated = true; break; }
+      remaining -= memorySize;
+      history.unshift({ ...(members ? { taskId: cursor.id } : {}), prompt, result, ...(remembered ? { workRecord: remembered } : {}) });
       if (prompt.length !== cursor.prompt.length || result.length !== cursor.result.length) historyTruncated = true;
       const previous = cursor.continuity?.parentTaskId;
       cursor = previous ? this.jobs.get(previous) : null;
     }
+    const snapshot = members ? { project: this.project, serverId: this.serverId, history, historyTruncated,
+      cast: members.map(member => ({ profile: structuredClone(member.profile), memory: member.memory, generation: member.generation, profileDigest: member.profileDigest })) } : null;
     return { reference, profile: structuredClone(context.profile), memory: context.memory, history,
+      ...(members ? { work: { cast: members.map(member => structuredClone(member.profile)), snapshot, contextDigest: digestContext(snapshot) } } : {}),
       continuity: { serverId: this.serverId, conversationId: parent?.continuity.conversationId ?? randomUUID(),
         ...(parent ? { parentTaskId: parent.id } : {}), companionRevision: context.revision, generation: context.generation,
-        profileDigest: context.profileDigest, memoryApplied: Boolean(context.memory.trim()), historyCount: history.length, historyTruncated } };
+        profileDigest: context.profileDigest, memoryApplied: Boolean(context.memory.trim()), historyCount: history.length, historyTruncated,
+        ...(members ? { workCast: castFingerprint } : {}) } };
+  }
+  workRequest(input) {
+    if (input == null) return null;
+    if (!ownKeys(input, ['cast']) || !Array.isArray(input.cast) || input.cast.length < 2 || input.cast.length > 6
+      || input.cast.some(member => !ownKeys(member, ['character', 'companionRevision']) || !ownKeys(member.character, ['id', 'name', 'version'])
+        || !/^[a-z0-9-]{1,64}$/.test(member.character.id) || !validText(member.character.name, 80, true)
+        || !Number.isSafeInteger(member.character.version) || member.character.version < 1
+        || !Number.isSafeInteger(member.companionRevision) || member.companionRevision < 1)
+      || new Set(input.cast.map(member => member.character.id)).size !== input.cast.length) throw new Error('참여 캐릭터는 중복 없이 2~6명이어야 합니다.');
+    return { cast: input.cast.map(member => ({ character: { id: member.character.id, name: member.character.name, version: member.character.version }, companionRevision: member.companionRevision }))
+      .sort((a, b) => a.character.id < b.character.id ? -1 : a.character.id > b.character.id ? 1 : 0) };
   }
   async submit(input) {
     if (!input || !/^[a-f0-9-]{36}$/i.test(input.id) || typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 8000
@@ -148,13 +185,13 @@ export class TaskBridge {
       const Rejection = this.jobs.has(input?.id) ? Error : SubmissionRejected;
       throw new Rejection('작업 요청 형식이 올바르지 않습니다.');
     }
-    let reference;
-    try { reference = this.reference(input.continuity); }
+    let reference, work;
+    try { reference = this.reference(input.continuity); work = this.workRequest(input.work); }
     catch (error) { if (!this.jobs.has(input.id)) throw new SubmissionRejected(error.message); throw error; }
     const old = this.jobs.get(input.id);
     if (old) {
       if (old.prompt !== input.prompt || ['id', 'version', 'name'].some(key => old.character[key] !== input.character[key])
-        || !same(old._execution?.reference ?? null, reference)) throw new Error('같은 요청 ID의 내용을 바꿀 수 없습니다.');
+        || !same(old._execution?.reference ?? null, reference) || !same(old.work ?? null, work)) throw new Error('같은 요청 ID의 내용을 바꿀 수 없습니다.');
       return old;
     }
     if ([...this.jobs.values()].some(t => !terminal.has(t.status))) throw new SubmissionRejected('진행 중인 작업을 먼저 마치거나 중단해 주세요.');
@@ -164,16 +201,19 @@ export class TaskBridge {
     const task = { id: input.id, prompt: input.prompt, character: { id: input.character.id, version: input.character.version, name: input.character.name }, project: basename(this.project), status: 'queued', sequence: 0,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), result: '', activity: '컴퓨터 연결 중', error: null,
       threadId: null, turnId: null, approvals: [], commands: [], receipts: {},
+      ...(work ? { work, fileChanges: [], workPhase: 'advising' } : {}),
       ...(execution ? { continuity: execution.continuity, _execution: execution } : {}) };
-    this.jobs.set(task.id, task); this.persist();
+    this.jobs.set(task.id, task);
+    try { this.persist(); } catch (error) { this.jobs.delete(task.id); throw error; }
     void this.execute(task); return task;
   }
   async execute(task) {
     const useProcessGroup = process.platform !== 'win32';
     const isScene = Boolean(task.episodeId);
+    const isWork = Boolean(task.work);
     let binding;
-    if (isScene) {
-      try { binding = prepareCastWorkspace(task); }
+    if (isScene || isWork) {
+      try { binding = isScene ? prepareCastWorkspace(task) : prepareWorkCastWorkspace(task); }
       catch (error) {
         const fields = { status: 'failed', error: bounded(`캐릭터 역할 준비 실패: ${error.message}`, 2000), approvals: [] };
         try { this.change(task, fields); } catch { Object.assign(task, fields); }
@@ -182,8 +222,10 @@ export class TaskBridge {
     }
     const runtimeCwd = binding?.cwd ?? this.project;
     const sceneConfig = { ...defaultSceneConfig, ...binding?.config };
+    const executionConfig = isScene ? sceneConfig : { ...workConfig, ...binding?.config };
+    const repositoryBefore = isWork ? repositorySnapshot(this.project) : null;
     let cast, completing = false;
-    const overrides = isScene ? Object.entries(sceneConfig).flatMap(([key, value]) => ['-c', `${key}=${JSON.stringify(value)}`]) : [];
+    const overrides = isScene || isWork ? Object.entries(executionConfig).flatMap(([key, value]) => ['-c', `${key}=${JSON.stringify(value)}`]) : [];
     const child = spawn(this.codex, [...overrides, 'app-server', '--listen', 'stdio://'], {
       cwd: runtimeCwd, stdio: ['pipe', 'pipe', 'pipe'], detached: useProcessGroup,
     });
@@ -194,7 +236,7 @@ export class TaskBridge {
       const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${method}: 실행기 응답 시간 초과`)); }, timeoutMs);
       pending.set(id, { resolve, reject, timer }); write({ id, method, params });
     });
-    let stopping = false, finished = false, killTimer;
+    let stopping = false, finished = false, killTimer, stopPromise, settlement;
     const signalGroup = signal => {
       if (!child.pid) return false;
       try { process.kill(-child.pid, signal); return true; }
@@ -206,32 +248,58 @@ export class TaskBridge {
       catch (error) { return error.code !== 'ESRCH'; }
     };
     const stop = () => {
-      if (stopping) return;
+      if (stopPromise) return stopPromise;
       stopping = true; child.stdin.end();
-      if (!child.pid) return;
-      if (useProcessGroup) {
+      let treeStopped = !child.pid;
+      if (child.pid && useProcessGroup) {
         if (signalGroup('SIGTERM')) {
           // Keep this timer alive through the group leader's exit and bridge
           // shutdown: a command descendant may ignore TERM after its parent exits.
           killTimer = setTimeout(() => signalGroup('SIGKILL'), 1000);
         }
-      } else {
+      } else if (child.pid) {
         // Windows has no POSIX process-group signals. Target only this PID's
         // process tree, without a shell; direct-child kill is the last fallback.
         const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
         killer.once('error', () => child.kill('SIGKILL'));
-        killer.once('exit', code => { if (code !== 0) child.kill('SIGKILL'); });
+        killer.once('exit', code => { treeStopped = code === 0; if (code !== 0) child.kill('SIGKILL'); });
       }
+      stopPromise = new Promise(resolve => {
+        const deadline = Date.now() + 5000;
+        const check = () => {
+          const stopped = !child.pid || (finished && (useProcessGroup ? !groupExists() : treeStopped));
+          if (stopped || Date.now() >= deadline) {
+            clearTimeout(killTimer);
+            resolve(stopped);
+          } else setTimeout(check, 25);
+        };
+        check();
+      });
+      void stopPromise.then(() => { this.sessions.delete(task.id); binding?.cleanup(); });
+      return stopPromise;
     };
-    this.sessions.set(task.id, { rpc, write, stop });
-    const fail = error => {
-      const fields = { status: task.cancelRequested ? 'interrupted' : 'failed', error: bounded(error.message, 2000), approvals: [],
-        ...(cast ? { castExecution: structuredClone(cast.receipt) } : {}) };
-      try { if (!terminal.has(task.status)) this.change(task, fields); }
-      catch { // A disk failure must stop execution without leaving a phantom event.
-        Object.assign(task, fields);
-      } finally { stop(); }
+    const settle = fields => {
+      if (settlement) return settlement;
+      settlement = (async () => {
+        const stopped = await stop();
+        if (terminal.has(task.status)) return task;
+        const repository = isWork ? stopped ? repositoryEvidence(repositoryBefore, repositorySnapshot(this.project))
+          : { available: false, truncated: true, changes: [] } : null;
+        fields = { ...fields, status: task.cancelRequested ? 'interrupted' : fields.status, approvals: [],
+          ...(isWork ? { workPhase: 'failed', partialRepositoryEvidence: repository } : {}),
+          ...(cast ? { castExecution: structuredClone(cast.receipt) } : {}),
+          ...(!stopped ? { error: '실행기 전체 종료를 확인하지 못해 파일 변경 증거가 불완전합니다.' } : {}) };
+        try { this.change(task, fields); }
+        catch { // The stopped result remains visible even when storage is unavailable.
+          Object.assign(task, fields, { error: `종료 상태를 저장하지 못했습니다. ${stopped ? '실행기 종료는 확인했습니다.' : '실행기 전체 종료도 확인하지 못했습니다.'}`,
+            sequence: task.sequence + 1, updatedAt: new Date().toISOString() });
+        }
+        return task;
+      })();
+      return settlement;
     };
+    this.sessions.set(task.id, { rpc, write, stop, settle });
+    const fail = error => settle({ status: 'failed', error: bounded(error.message, 2000) });
     const receiveResult = text => this.change(task, { result: bounded(text) });
     child.on('error', fail);
     child.stdin.on('error', error => { if (!terminal.has(task.status)) fail(error); });
@@ -241,11 +309,9 @@ export class TaskBridge {
       if (finished) return;
       finished = true;
       for (const p of pending.values()) { clearTimeout(p.timer); p.reject(new Error('컴퓨터 실행기가 종료되었습니다.')); }
-      pending.clear(); this.sessions.delete(task.id);
-      binding?.cleanup();
-      if (!terminal.has(task.status)) this.change(task, { status: 'interrupted', error: '완료 이벤트 없이 실행기가 종료되었습니다.', approvals: [] });
-      stop();
-      if (!useProcessGroup || !groupExists()) clearTimeout(killTimer);
+      pending.clear();
+      if (!stopping && !terminal.has(task.status)) void settle({ status: 'interrupted', error: '완료 이벤트 없이 실행기가 종료되었습니다.' });
+      else void stop();
     };
     child.on('exit', finish);
     // A spawn error (e.g. ENOENT) has no exit event but still emits close.
@@ -256,12 +322,17 @@ export class TaskBridge {
         const p = pending.get(message.id); pending.delete(message.id); clearTimeout(p.timer);
         message.error ? p.reject(new Error(message.error.message)) : p.resolve(message.result); return;
       }
-      if (terminal.has(task.status)) return;
+      if (stopping || terminal.has(task.status)) return;
       const p = message.params ?? {};
       if (message.id !== undefined && message.method) {
-        if (isScene) {
+        if (isWork && message.method === 'item/tool/call') {
+          try { write({ id: message.id, result: workEvidenceResponse(task, p) }); }
+          catch (error) { write({ id: message.id, result: { contentItems: [{ type: 'inputText', text: error.message }], success: false } }); fail(error); }
+          return;
+        }
+        if (isScene || (isWork && p.threadId !== task.threadId)) {
           write({ id: message.id, error: { code: -32601, message: 'Story scenes cannot request tools, actions, or permissions.' } });
-          fail(new Error('이야기 장면에서 도구 실행 요청이 발생해 중단했습니다.')); return;
+          fail(new Error('실행 권한이 없는 캐릭터가 추가 실행·승인을 요청하여 중단했습니다.')); return;
         }
         if (['item/commandExecution/requestApproval', 'item/fileChange/requestApproval'].includes(message.method)) {
           const approval = { id: String(message.id), rpcId: message.id, method: message.method,
@@ -291,15 +362,48 @@ export class TaskBridge {
         } catch (error) { fail(error); }
         return;
       }
+      if (isWork) {
+        if (task.cancelRequested) return;
+        try {
+          if (!cast) return;
+          cast.observe(message.method, p);
+          if (['turn/started', 'turn/completed', 'item/completed'].includes(message.method)) this.change(task, { castExecution: structuredClone(cast.receipt) });
+        } catch (error) { fail(error); return; }
+      }
       if (p.threadId && task.threadId && p.threadId !== task.threadId) return;
       if (message.method === 'turn/started') this.change(task, { turnId: p.turn.id, status: 'running', activity: '작업 실행 중' });
-      if (message.method === 'item/agentMessage/delta') receiveResult(task.result + p.delta);
-      if (message.method === 'item/started' && p.item?.type === 'commandExecution') this.change(task, { activity: bounded(p.item.command, 2000) });
-      if (message.method === 'item/completed') {
-        if (p.item?.type === 'agentMessage') receiveResult(p.item.text);
-        if (p.item?.type === 'commandExecution') this.change(task, { commands: [...task.commands, { command: bounded(p.item.command, 2000), exitCode: p.item.exitCode, output: bounded(p.item.aggregatedOutput, 6000) }].slice(-30) });
-      }
+      if (!isWork && message.method === 'item/agentMessage/delta') receiveResult(task.result + p.delta);
+      if (message.method === 'item/started' && p.item?.type === 'commandExecution') this.change(task, { activity: bounded(p.item.command, 2000), ...(isWork ? { workPhase: 'executing' } : {}) });
+      const capture = item => {
+        if (!isWork && item?.type === 'agentMessage') receiveResult(item.text);
+        if (item?.type === 'commandExecution') this.change(task, { commands: [...task.commands.filter(command => !item.id || command.itemId !== item.id),
+          { ...(item.id ? { itemId: item.id, threadId: p.threadId, turnId: p.turnId ?? p.turn?.id ?? task.turnId } : {}),
+            command: bounded(item.command, 4000), exitCode: item.exitCode, status: item.status, cwd: item.cwd, output: bounded(item.aggregatedOutput, 6000) }].slice(-100) });
+        if (isWork && item?.type === 'fileChange') this.change(task, { fileChanges: [...task.fileChanges.filter(change => change.itemId !== item.id),
+          { itemId: item.id, threadId: p.threadId, turnId: p.turnId ?? p.turn?.id ?? task.turnId, status: item.status,
+            changes: (item.changes ?? []).map(change => ({ path: change.path, kind: change.kind, diff: bounded(change.diff, 16000) })) }].slice(-100) });
+      };
+      if (message.method === 'item/completed') capture(p.item);
       if (message.method === 'turn/completed') {
+        if (isWork) {
+          if (completing) return;
+          completing = true;
+          try { for (const item of p.turn.items ?? []) capture(item); this.change(task, { workPhase: 'verifying', activity: '캐릭터 의견·작업 증거 확인 중' }); }
+          catch (error) { fail(error); return; }
+          void cast.validate(rpc).then(({ value, execution, contributions }) => {
+            if (stopping || task.cancelRequested || terminal.has(task.status)) return;
+            const repository = repositoryEvidence(repositoryBefore, repositorySnapshot(this.project));
+            const record = { taskId: task.id, summary: value.summary, decisions: value.decisions, contributions,
+              remainingRisks: value.remainingRisks, sourceTaskIds: task._execution.history.map(entry => entry.taskId),
+              contextDigest: task._execution.work.contextDigest, project: this.project, recordedAt: new Date().toISOString(),
+              evidence: { commands: value.validation.map(check => ({ ...task.commands.find(command => command.itemId === check.commandItemId), purpose: check.purpose })),
+                fileChanges: task.fileChanges, repository } };
+            this.change(task, { status: 'completed', workPhase: 'outcome_committed', workRecord: record, castExecution: execution,
+              result: value.summary, approvals: [], activity: '협업 결과·결정 저장 완료', error: null });
+            stop();
+          }).catch(fail);
+          return;
+        }
         const status = terminal.has(p.turn.status) ? p.turn.status : 'failed';
         this.change(task, { status, approvals: [], activity: status === 'completed' ? '작업 완료' : '작업 종료', error: p.turn.error?.message ?? null });
         stop();
@@ -307,11 +411,11 @@ export class TaskBridge {
       if (message.method === 'error' && !p.willRetry) fail(new Error(p.error?.message ?? '실행기 오류'));
     });
     try {
-      await rpc('initialize', { clientInfo: { name: 'doboo', title: 'Doboo', version: '0.3.0' } }); write({ method: 'initialized' });
+      await rpc('initialize', { clientInfo: { name: 'doboo', title: 'Doboo', version: '0.3.0' }, ...(isWork ? { capabilities: { experimentalApi: true } } : {}) }); write({ method: 'initialized' });
       const auth = await rpc('account/read', {});
       if (auth.account?.type !== 'chatgpt') throw new Error('컴퓨터에서 Codex를 ChatGPT 구독 계정으로 로그인해 주세요. API 결제 경로로 전환하지 않습니다.');
       let sceneModel;
-      if (isScene) {
+      if (isScene || isWork) {
         // Isolation changes cwd, so preserve settings from the user's project
         // instead of silently adopting the temporary directory's defaults.
         const [source, effective] = await Promise.all([
@@ -319,7 +423,10 @@ export class TaskBridge {
           rpc('config/read', { includeLayers: false, cwd: runtimeCwd }),
         ]);
         sceneModel = source.config?.model ?? undefined;
-        if (source.config?.model_reasoning_effort != null) sceneConfig.model_reasoning_effort = source.config.model_reasoning_effort;
+        if (source.config?.model_reasoning_effort != null) {
+          sceneConfig.model_reasoning_effort = source.config.model_reasoning_effort;
+          executionConfig.model_reasoning_effort = source.config.model_reasoning_effort;
+        }
         // An empty MCP table does not override layered user configuration. Disable
         // every configured server explicitly before creating the scene session.
         for (const role of binding.roles) {
@@ -327,23 +434,28 @@ export class TaskBridge {
           if (!registered || realpathSync(registered.config_file) !== role.path || registered.description !== role.description)
             throw new Error('호스트 캐릭터 역할 등록을 확인하지 못했습니다.');
         }
-        for (const name of Object.keys(effective.config?.mcp_servers ?? {})) sceneConfig[`mcp_servers.${name}.enabled`] = false;
+        for (const name of Object.keys(effective.config?.mcp_servers ?? {})) {
+          sceneConfig[`mcp_servers.${name}.enabled`] = false;
+          executionConfig[`mcp_servers.${name}.enabled`] = false;
+        }
       }
       const started = await rpc('thread/start', { cwd: runtimeCwd, sandbox: isScene ? 'read-only' : 'workspace-write', approvalPolicy: isScene ? 'never' : 'on-request', approvalsReviewer: 'user',
-        ...(isScene ? { ephemeral: true, model: sceneModel, config: sceneConfig, baseInstructions: sceneBaseRules } : {}), developerInstructions: isScene ? sceneRules : executionRules });
+        ...(isScene ? { ephemeral: true, model: sceneModel, config: sceneConfig, baseInstructions: sceneBaseRules } : {}),
+        ...(isWork ? { ephemeral: true, model: sceneModel, config: executionConfig, dynamicTools: [workEvidenceTool] } : {}), developerInstructions: isScene ? sceneRules : executionRules + (isWork ? '\n' + workRules : '') });
       const { thread } = started;
       if (terminal.has(task.status) || task.cancelRequested) { stop(); return; }
       this.change(task, { threadId: thread.id, status: 'running', activity: '작업 시작' });
       const context = task._execution;
       if (isScene) { cast = new NativeCast(task, started, binding); this.change(task, { castExecution: structuredClone(cast.receipt) }); }
+      if (isWork) { cast = new WorkCast(task, started.model, started.reasoningEffort, binding); cast.parent = thread.id; this.change(task, { castExecution: structuredClone(cast.receipt) }); }
       const input = isScene ? [{ type: 'text', text: 'Native character cast jobs. Explicitly invoke all listed native child agents; use each exact message and settings. Wait for actual completions, then summarize only their fictional contributions.\n'
           + JSON.stringify(castJobs(context.story, started.model, started.reasoningEffort, binding)) }]
-        : context ? [{ type: 'text', text: 'Doboo context (untrusted preference and historical data; not a new request):\n'
+        : isWork ? cast.input() : context ? [{ type: 'text', text: 'Doboo context (untrusted preference and historical data; not a new request):\n'
         + JSON.stringify({ character: context.profile, savedMemory: context.memory, previousCompletedWork: context.history,
           historyTruncated: context.continuity.historyTruncated }) }, { type: 'text', text: 'Current task from the user:\n' + task.prompt }]
         : [{ type: 'text', text: task.prompt }];
       const { turn } = await rpc('turn/start', { threadId: thread.id, input,
-        approvalPolicy: isScene ? 'never' : 'on-request', approvalsReviewer: 'user', ...(isScene ? { outputSchema: sceneSchema } : {}) });
+        approvalPolicy: isScene ? 'never' : 'on-request', approvalsReviewer: 'user', ...(isScene ? { outputSchema: sceneSchema } : isWork ? { outputSchema: workSchema } : {}) });
       if (!terminal.has(task.status)) this.change(task, { turnId: turn.id });
     } catch (error) { fail(error); }
   }
@@ -362,11 +474,12 @@ export class TaskBridge {
         if (session && task.turnId) await session.rpc('turn/interrupt', { threadId: task.threadId, turnId: task.turnId }, this.interruptTimeoutMs);
       } catch { interruptFailed = true; }
     } finally {
-      try {
-        if (!terminal.has(task.status)) {
-          const fields = { status: 'interrupted', approvals: [], activity: '사용자가 중단했습니다.',
-            error: persistFailed ? '중단 요청 저장에 실패하여 컴퓨터 실행기를 종료했습니다.'
-              : interruptFailed ? '중단 응답을 확인하지 못해 컴퓨터 실행기를 종료했습니다.' : null };
+      if (!terminal.has(task.status)) {
+        const fields = { status: 'interrupted', approvals: [], activity: '사용자가 중단했습니다.',
+          error: persistFailed ? '중단 요청 저장에 실패하여 컴퓨터 실행기를 종료했습니다.'
+            : interruptFailed ? '중단 응답을 확인하지 못해 컴퓨터 실행기를 종료했습니다.' : null };
+        if (session) await session.settle(fields);
+        else {
           try { this.change(task, fields); }
           catch {
             // Preserve the stopped state in memory; restart recovery handles
@@ -375,7 +488,7 @@ export class TaskBridge {
               sequence: task.sequence + 1, updatedAt: new Date().toISOString() });
           }
         }
-      } finally { session?.stop(); }
+      } else await session?.stop();
     }
     return task;
   }
@@ -387,7 +500,14 @@ export class TaskBridge {
     const approvals = task.approvals.filter(a => a.id !== id);
     this.change(task, { approvals, status: approvals.length ? 'needsApproval' : 'running' }); return task;
   }
-  close() { for (const [id, session] of this.sessions) { const task = this.jobs.get(id); if (!terminal.has(task.status)) this.change(task, { status: 'interrupted', approvals: [] }); session.stop(); } }
+  async close() {
+    await Promise.all([...this.sessions].map(([id, session]) => {
+      const task = this.jobs.get(id);
+      if (terminal.has(task.status)) return session.stop();
+      task.cancelRequested = true;
+      return session.settle({ status: 'interrupted', activity: '컴퓨터 연결이 종료되었습니다.', error: null });
+    }));
+  }
 }
 
 export async function startBridge(options) {
@@ -420,7 +540,7 @@ export async function startBridge(options) {
       }
       const eventMatch = /^\/v1\/story\/events\/([a-f0-9-]{36})$/i.exec(url.pathname);
       if (req.method === 'POST' && eventMatch) return send(200, bridge.story.editEvent(eventMatch[1], input));
-      if (req.method === 'GET' && url.pathname === '/v1/tasks') return send(200, { serverId: bridge.serverId, project: basename(bridge.project),
+      if (req.method === 'GET' && url.pathname === '/v1/tasks') return send(200, { serverId: bridge.serverId, project: basename(bridge.project), workCastSupported: true,
         companions: Object.values(bridge.contexts.companions), tasks: [...bridge.jobs.values()].slice(-50).reverse().map(publicTask) });
       const companionMatch = /^\/v1\/companions\/([a-z0-9-]{1,64})$/.exec(url.pathname);
       if (companionMatch) {
@@ -453,6 +573,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   if (!project || !directory) throw new Error('Usage: node task-bridge/server.mjs PROJECT PRIVATE_STATE_DIRECTORY');
   const { server, bridge, tokenPath } = await startBridge({ project, directory });
   console.log(JSON.stringify({ connectionFile: tokenPath, project: basename(project), binding: 'loopback-only' }));
-  const shutdown = () => { bridge.close(); server.close(); };
+  const shutdown = () => { server.close(); void bridge.close(); };
   process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
 }

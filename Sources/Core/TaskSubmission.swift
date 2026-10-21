@@ -24,6 +24,7 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   let prompt: String
   let character: CompanionTask.Character
   var continuity: Continuity? = nil
+  var work: WorkRequest? = nil
 
   struct Continuity: Codable, Equatable, Sendable {
     let serverId: String
@@ -32,13 +33,14 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   }
 
   enum ValidationError: LocalizedError, Equatable {
-    case emptyPrompt, promptTooLong, requestTooLarge
+    case emptyPrompt, promptTooLong, requestTooLarge, invalidWorkCast
 
     var errorDescription: String? {
       switch self {
       case .emptyPrompt: "부탁할 작업을 입력해 주세요."
       case .promptTooLong: "작업 내용이 너무 깁니다. 8,000자 이내로 줄여 주세요. 이모지는 두 글자로 계산될 수 있습니다."
       case .requestTooLarge: "작업 요청이 20,000바이트를 넘습니다. 내용을 줄여 주세요."
+      case .invalidWorkCast: "진행 캐릭터를 포함해 적용된 캐릭터 2~6명을 선택해 주세요."
       }
     }
   }
@@ -47,6 +49,7 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   func encodedRequest() throws -> Data {
     guard !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw ValidationError.emptyPrompt }
     guard prompt.utf16.count <= 8000 else { throw ValidationError.promptTooLong }
+    if let work, !work.isValid(host: character) { throw ValidationError.invalidWorkCast }
     // Reconstructing a pending request must retain its wire representation;
     // JSONEncoder's default object-key order can change between encodes.
     let encoder = JSONEncoder()
@@ -57,11 +60,33 @@ struct TaskSubmission: Codable, Equatable, Sendable {
   }
 
   func matches(_ task: CompanionTask) -> Bool {
-    guard id == task.id, prompt == task.prompt, character == task.character else { return false }
+    guard id == task.id, prompt == task.prompt, character == task.character, work == task.work else { return false }
     guard let continuity else { return task.continuity == nil }
     return task.continuity?.serverId == continuity.serverId
       && task.continuity?.companionRevision == continuity.companionRevision
       && task.continuity?.parentTaskId == continuity.parentTaskId
+  }
+}
+
+/// The cast advises the host; selecting a character does not grant execution authority.
+struct WorkRequest: Codable, Equatable, Sendable {
+  struct Member: Codable, Equatable, Sendable {
+    let character: CompanionTask.Character
+    let companionRevision: Int
+  }
+  let cast: [Member]
+
+  func isValid(host: CompanionTask.Character) -> Bool {
+    (2...6).contains(cast.count)
+      && Set(cast.map { $0.character.id }).count == cast.count
+      && cast.contains { $0.character == host }
+      && cast.allSatisfy { $0.companionRevision > 0 && $0.character.version > 0 && !$0.character.id.isEmpty }
+  }
+
+  func matches(companions: [CompanionContext]) -> Bool {
+    cast.allSatisfy { member in
+      companions.contains { $0.profile.character == member.character && $0.revision == member.companionRevision }
+    }
   }
 }
 

@@ -31,6 +31,16 @@ struct CompanionTask: Codable, Identifiable, Equatable, Sendable {
   var continuity: TaskContinuity? = nil
   var episodeId: String? = nil
   var castExecution: StoryCastExecution? = nil
+  var work: WorkRequest? = nil
+  var workRecord: WorkRecord? = nil
+  var partialRepositoryEvidence: WorkRecord.Repository? = nil
+  var fileChanges: [WorkRecord.FileChange]? = nil
+
+  /// Partial runtime evidence is visible without becoming a saved work outcome.
+  var showsUnverifiedWorkEvidence: Bool {
+    work != nil && workRecord == nil
+      && (finished || !commands.isEmpty || fileChanges?.isEmpty == false || partialRepositoryEvidence != nil)
+  }
   var finished: Bool { ["completed", "failed", "interrupted"].contains(status) }
   var statusKey: String {
     switch status {
@@ -107,4 +117,123 @@ struct TaskContinuity: Codable, Equatable, Sendable {
   let memoryApplied: Bool
   let historyCount: Int
   let historyTruncated: Bool
+  var workCast: [WorkCastContext]? = nil
+}
+
+struct WorkCastContext: Codable, Equatable, Sendable {
+  let characterId: String
+  let revision: Int
+  let generation: Int
+  let profileDigest: String
+}
+
+extension CompanionTask {
+  var involvedCharacterIds: Set<String> {
+    Set(work?.cast.map { $0.character.id } ?? [character.id])
+  }
+
+  /// Saving unchanged context may advance revisions. A new personality or
+  /// history generation invalidates continuation for every advisor and the host.
+  func hasCurrentWorkCast(in companions: [CompanionContext]) -> Bool {
+    guard let work else { return true }
+    guard work.isValid(host: character), let frozen = continuity?.workCast,
+      frozen.count == work.cast.count,
+      Set(frozen.map(\.characterId)) == involvedCharacterIds else { return false }
+    return work.cast.allSatisfy { member in
+      guard let saved = frozen.first(where: { $0.characterId == member.character.id }),
+        let current = companions.first(where: { $0.characterId == member.character.id }) else { return false }
+      return saved.revision == member.companionRevision
+        && current.profile.character == member.character
+        && current.generation == saved.generation && current.profileDigest == saved.profileDigest
+    }
+  }
+}
+
+struct WorkRecord: Codable, Equatable, Sendable {
+  struct Decision: Codable, Equatable, Sendable {
+    let characterId: String
+    let proposalId: String
+    let disposition: String
+    let rationale: String
+
+    var label: String {
+      switch disposition {
+      case "adopted": "채택"
+      case "rejected": "기각"
+      case "deferred": "보류"
+      default: "확인 필요"
+      }
+    }
+  }
+  struct Proposal: Codable, Identifiable, Equatable, Sendable {
+    let id: String
+    let summary: String
+    let rationale: String
+    let paths: [String]
+  }
+  struct Contribution: Codable, Identifiable, Equatable, Sendable {
+    let characterId: String
+    let proposals: [Proposal]
+    let rememberedTaskIds: [String]
+    let commands: [Command]
+    var id: String { characterId }
+  }
+  struct Command: Codable, Equatable, Sendable {
+    let itemId: String
+    let threadId: String
+    let turnId: String
+    let command: String
+    let output: String
+    let exitCode: Int?
+    let status: String
+    var cwd: String? = nil
+    var purpose: String? = nil
+  }
+  struct FileChange: Codable, Equatable, Sendable {
+    struct Change: Codable, Equatable, Sendable {
+      struct Kind: Codable, Equatable, Sendable {
+        let type: String
+        var move_path: String? = nil
+      }
+      let path: String
+      let kind: Kind
+      let diff: String
+    }
+    let itemId: String
+    let threadId: String
+    let turnId: String
+    let status: String
+    let changes: [Change]
+  }
+  struct Repository: Codable, Equatable, Sendable {
+    struct Change: Codable, Equatable, Sendable {
+      let path: String
+      var beforeSHA256: String? = nil
+      var afterSHA256: String? = nil
+    }
+    let available: Bool
+    var headBefore: String? = nil
+    var headAfter: String? = nil
+    let truncated: Bool
+    let changes: [Change]
+  }
+  struct Evidence: Codable, Equatable, Sendable {
+    let commands: [Command]
+    let fileChanges: [FileChange]
+    var repository: Repository? = nil
+
+    var hasRecordedFileChanges: Bool {
+      fileChanges.contains { !$0.changes.isEmpty } || repository?.changes.isEmpty == false
+    }
+  }
+  let taskId: String
+  let summary: String
+  let decisions: [Decision]
+  let contributions: [Contribution]
+  let remainingRisks: [String]
+  let evidence: Evidence
+  let sourceTaskIds: [String]
+  let contextDigest: String
+  let project: String
+  let recordedAt: String
 }

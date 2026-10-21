@@ -15,6 +15,7 @@ struct ComputerConnection: Codable {
 final class TaskConnection {
   var tasks: [CompanionTask] = []
   private(set) var companions: [CompanionContext] = []
+  private(set) var workCastSupported = false
   private(set) var serverId: String?
   private(set) var savingCompanion = false
   private(set) var story: StoryState?
@@ -56,6 +57,7 @@ final class TaskConnection {
     let tasks: [CompanionTask]
     let serverId: String?
     let companions: [CompanionContext]?
+    let workCastSupported: Bool?
   }
   private struct TaskCache: Codable {
     let project: String
@@ -64,6 +66,7 @@ final class TaskConnection {
     var endpoint: TaskEndpointIdentity? = nil
     var serverId: String? = nil
     var companions: [CompanionContext]? = nil
+    var workCastSupported: Bool? = nil
   }
   private struct Failure: Decodable { let error: String; let submissionRejected: Bool? }
   private struct RequestFailure: LocalizedError {
@@ -100,6 +103,7 @@ final class TaskConnection {
     #endif
     if let cachedEndpoint, cachedEndpoint != endpoint {
       tasks = []; companions = []; project = ""; serverId = nil; lastSuccessfulRefreshAt = nil
+      workCastSupported = false
     }
     address = connection?.url ?? ""
     connectionToken = connection?.token ?? ""
@@ -131,14 +135,15 @@ final class TaskConnection {
   }
   func canEditCompanion(characterId: String) -> Bool {
     hasFreshStatus && supportsContinuity && !savingCompanion && !savingStory && !hasPendingStory && !submitting && !pendingRetry
-      && !tasks.contains { $0.character.id == characterId && !$0.finished }
+      && !tasks.contains { $0.involvedCharacterIds.contains(characterId) && !$0.finished }
   }
   func canContinue(task: CompanionTask) -> Bool {
     guard canSubmit, let current = tasks.first(where: { $0.id == task.id }), current == task,
       current.status == "completed", let continuity = current.continuity,
       continuity.serverId == serverId,
       let context = companions.first(where: { $0.characterId == current.character.id }),
-      context.profileDigest == continuity.profileDigest, context.generation == continuity.generation else { return false }
+      context.profileDigest == continuity.profileDigest, context.generation == continuity.generation,
+      current.work == nil || workCastSupported, current.hasCurrentWorkCast(in: companions) else { return false }
     // Only the latest turn in this conversation is a valid continuation point.
     return !tasks.contains { other in
       other.id != current.id && other.continuity?.parentTaskId == current.id
@@ -188,6 +193,7 @@ final class TaskConnection {
       let cache = try? JSONDecoder().decode(TaskCache.self, from: data) {
       tasks = cache.tasks; project = cache.project; lastSuccessfulRefreshAt = cache.checkedAt
       serverId = cache.serverId; companions = cache.companions ?? []; cachedEndpoint = cache.endpoint
+      workCastSupported = cache.workCastSupported ?? false
     } else if let data = try? Data(contentsOf: storage.appendingPathComponent("tasks.json")) {
       tasks = (try? JSONDecoder().decode([CompanionTask].self, from: data)) ?? []
     }
@@ -196,7 +202,7 @@ final class TaskConnection {
   private func saveTaskCache() throws {
     guard let checkedAt = lastSuccessfulRefreshAt else { return }
     try FileManager.default.createDirectory(at: storage, withIntermediateDirectories: true)
-    try JSONEncoder().encode(TaskCache(project: project, tasks: tasks, checkedAt: checkedAt, endpoint: endpoint, serverId: serverId, companions: companions))
+    try JSONEncoder().encode(TaskCache(project: project, tasks: tasks, checkedAt: checkedAt, endpoint: endpoint, serverId: serverId, companions: companions, workCastSupported: workCastSupported))
       .write(to: storage.appendingPathComponent("task-cache.json"), options: .atomic)
   }
 
@@ -243,7 +249,7 @@ final class TaskConnection {
       try persistCredential(value)
       if endpoint != candidate || serverId != list.serverId { story = nil; storyError = nil }
       connection = value
-      serverId = list.serverId; companions = list.companions ?? []
+      serverId = list.serverId; companions = list.companions ?? []; workCastSupported = list.workCastSupported ?? false
       tasks = list.tasks; project = list.project; refreshError = nil; acknowledged = [:]
       recordSuccessfulRefresh()
       try saveTaskCache()
@@ -298,7 +304,7 @@ final class TaskConnection {
     invalidateLiveStatus()
     story = nil; storyError = nil
     connection = candidate; address = candidate.url; connectionToken = candidate.token
-    serverId = list.serverId; companions = list.companions ?? []; tasks = list.tasks; project = list.project
+    serverId = list.serverId; companions = list.companions ?? []; workCastSupported = list.workCastSupported ?? false; tasks = list.tasks; project = list.project
     acknowledged = [:]; refreshError = nil; operationError = nil
     recordSuccessfulRefresh(); try saveTaskCache()
     return WatchConnectionReceipt(requestId: envelope.requestId, serverId: envelope.serverId,
@@ -343,7 +349,7 @@ final class TaskConnection {
         if latest.status == "needsApproval" || latest.status == "failed" { WKInterfaceDevice.current().play(.notification) }
       }
       #endif
-      serverId = list.serverId; companions = list.companions ?? []
+      serverId = list.serverId; companions = list.companions ?? []; workCastSupported = list.workCastSupported ?? false
       tasks = list.tasks; project = list.project; refreshError = nil
       recordSuccessfulRefresh()
       try saveTaskCache()
@@ -373,26 +379,55 @@ final class TaskConnection {
   }
 
   @discardableResult
-  func submit(character: CharacterPack) async -> Bool {
+  func submit(character: CharacterPack, castIds: Set<String> = []) async -> Bool {
     if pendingRetry { return await submitPrepared(nil) }
     guard let context = companion(for: character), context.profile == CompanionProfile(character) else {
       operationError = String(localized: "continuity.applyFirst")
       return false
     }
-    return await submit(companion: context)
+    let requestedIds = castIds.union([character.id])
+    guard requestedIds.count <= 6 else {
+      operationError = TaskSubmission.ValidationError.invalidWorkCast.localizedDescription; return false
+    }
+    let cast = companions.filter { requestedIds.contains($0.characterId) }
+    guard cast.count == requestedIds.count else {
+      operationError = String(localized: "continuity.applyFirst"); return false
+    }
+    return await submit(companion: context, cast: cast)
   }
 
   @discardableResult
-  func submit(companion: CompanionContext, parentTask: CompanionTask? = nil) async -> Bool {
+  func submit(companion: CompanionContext, parentTask: CompanionTask? = nil, cast: [CompanionContext]? = nil) async -> Bool {
     if pendingRetry { return await submitPrepared(nil) }
     guard canSubmit, let serverId, companions.contains(companion),
       parentTask == nil || (parentTask?.character.id == companion.characterId && canContinue(task: parentTask!)) else {
       operationError = String(localized: "continuity.refreshBeforeSubmit")
       return false
     }
+    let selectedCast: [CompanionContext]
+    if let inherited = parentTask?.work {
+      selectedCast = inherited.cast.compactMap { member in companions.first { $0.characterId == member.character.id } }
+      guard selectedCast.count == inherited.cast.count else { return false }
+    } else {
+      selectedCast = cast ?? [companion]
+    }
+    guard selectedCast.contains(companion), selectedCast.allSatisfy({ companions.contains($0) }),
+      Set(selectedCast.map(\.characterId)).count == selectedCast.count else {
+      operationError = String(localized: "continuity.refreshBeforeSubmit"); return false
+    }
+    // The server freezes cast order as part of the parent context. Preserve
+    // it for tasks started by another surface as well as this client.
+    let orderedCast = parentTask?.work == nil ? selectedCast.sorted { $0.characterId < $1.characterId } : selectedCast
+    let work: WorkRequest? = orderedCast.count > 1
+      ? WorkRequest(cast: orderedCast.map {
+        .init(character: $0.profile.character, companionRevision: $0.revision)
+      }) : nil
+    guard work.map({ workCastSupported && $0.isValid(host: companion.profile.character) && $0.matches(companions: companions) }) ?? true else {
+      operationError = "이 컴퓨터에서 작업 캐스트를 지원하는지 확인하고 캐릭터 2~6명을 선택해 주세요."; return false
+    }
     let submission = TaskSubmission(id: UUID().uuidString.lowercased(), prompt: prompt,
       character: companion.profile.character,
-      continuity: .init(serverId: serverId, companionRevision: companion.revision, parentTaskId: parentTask?.id))
+      continuity: .init(serverId: serverId, companionRevision: companion.revision, parentTaskId: parentTask?.id), work: work)
     return await submitPrepared(submission)
   }
 
@@ -666,7 +701,8 @@ final class TaskConnection {
       let current = tasks.first(where: { $0.id == task.id }),
       !current.finished, current.sequence >= task.sequence,
       current.prompt == task.prompt, current.character == task.character,
-      current.project == task.project, current.continuity == task.continuity else { return nil }
+      current.project == task.project, current.continuity == task.continuity, current.work == task.work,
+      current.hasCurrentWorkCast(in: companions) else { return nil }
     return current
   }
 }
