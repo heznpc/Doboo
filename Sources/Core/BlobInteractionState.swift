@@ -1,4 +1,8 @@
-import CoreGraphics
+#if canImport(CoreGraphics)
+  import CoreGraphics
+#else
+  import Foundation
+#endif
 
 struct BlobInteractionState: Equatable {
   enum Expression: Equatable {

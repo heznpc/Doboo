@@ -18,6 +18,26 @@ expression, and springs back with haptic feedback when released.
 - Build with `xcodebuild -project Doboo.xcodeproj -scheme Doboo -sdk watchsimulator build`.
 - Run the platform-independent model tests with `swift test`.
 
+### Windows model development
+
+`DobooCore` and its tests can run on Windows with Swift 6.0 or later, MSVC x64
+build tools, and a Windows SDK. See the [Swift Windows prerequisites](https://www.swift.org/install/windows/).
+The watchOS app, SwiftUI rendering, gestures, and haptics require Mac/Xcode and
+remain unverified by these model tests.
+
+For the local Swift 6.4.1 setup under `%LOCALAPPDATA%\Programs\Swift`, run from
+the repository in PowerShell:
+
+```powershell
+. .\scripts\Enter-Swift.ps1
+swift test
+swift build -c release
+```
+
+The script changes only the current process environment. Use `-SwiftRoot` and
+`-SwiftVersion` if your toolchain location or version differs. No third-party
+Swift packages or package-registry login are required.
+
 ## Project boundary
 
 Doboo and `squeeez!` are separate products and separate repositories.
